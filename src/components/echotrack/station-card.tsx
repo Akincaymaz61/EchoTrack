@@ -31,6 +31,8 @@ import {
 } from "@/components/ui/popover"
 import { SoundWave } from '@/components/echotrack/sound-wave';
 import { Badge } from '@/components/ui/badge';
+import { CATEGORIES } from '@/lib/categories';
+
 
 type StationCardProps = {
   station: Station;
@@ -43,17 +45,6 @@ type CurrentSongInfo = {
 }
 
 const MAX_RETRIES = 3;
-
-// Helper to generate a consistent color from a string
-const generateColorFromString = (str: string) => {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  const h = hash % 360;
-  return `hsl(${h}, 70%, 40%)`;
-};
-
 
 export function StationCard({ station }: StationCardProps) {
   const { logSong, loggedSongs, toggleFavorite, removeStation, currentlyPlayingStationId, setCurrentlyPlayingStationId } = useAppContext();
@@ -268,7 +259,10 @@ export function StationCard({ station }: StationCardProps) {
     });
   };
 
-  const genreColor = useMemo(() => generateColorFromString(station.genre), [station.genre]);
+  const categoryColor = useMemo(() => {
+    return CATEGORIES[station.category as keyof typeof CATEGORIES] || 'hsl(var(--muted))';
+  }, [station.category]);
+
 
   return (
     <>
@@ -328,9 +322,9 @@ export function StationCard({ station }: StationCardProps) {
                         <Icon className="w-6 h-6 text-primary flex-shrink-0" />
                         <span className="truncate">{station.name}</span>
                     </CardTitle>
-                    <CardDescription>{station.genre}</CardDescription>
+                    <CardDescription>{station.category}</CardDescription>
                 </div>
-                <Badge style={{ backgroundColor: genreColor }} className="text-white text-xs whitespace-nowrap">{station.genre}</Badge>
+                <Badge style={{ backgroundColor: categoryColor }} className="text-white text-xs whitespace-nowrap">{station.genre}</Badge>
             </div>
         </CardHeader>
         <CardContent className="flex-grow flex flex-col justify-center items-center text-center min-h-[120px] p-4">

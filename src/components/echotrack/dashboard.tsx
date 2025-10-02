@@ -10,24 +10,23 @@ import { AddStationDialog } from '@/components/echotrack/add-station-dialog';
 import { Radio, Plus, ListFilter, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { CATEGORIES } from '@/lib/categories';
+
+const categoryNames = Object.keys(CATEGORIES);
 
 function MainUI() {
   const { stations } = useAppContext();
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isAddStationOpen, setIsAddStationOpen] = useState(false);
-  const [genreFilter, setGenreFilter] = useState<string | null>(null);
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
 
-  const allGenres = useMemo(() => {
-    const genres = new Set(stations.map(s => s.genre));
-    return Array.from(genres);
-  }, [stations]);
 
   const filteredStations = useMemo(() => {
-    if (!genreFilter) {
+    if (!categoryFilter) {
       return stations;
     }
-    return stations.filter(station => station.genre === genreFilter);
-  }, [stations, genreFilter]);
+    return stations.filter(station => station.category === categoryFilter);
+  }, [stations, categoryFilter]);
 
   return (
     <>
@@ -41,23 +40,26 @@ function MainUI() {
             <DropdownMenuTrigger asChild>
               <Button variant="outline">
                 <ListFilter className="mr-2 h-4 w-4" />
-                Filter by Genre
-                {genreFilter && <span className="ml-2 rounded-full bg-secondary px-2 py-0.5 text-xs">{genreFilter}</span>}
+                Filter by Category
+                {categoryFilter && <span className="ml-2 rounded-full bg-secondary px-2 py-0.5 text-xs">{categoryFilter}</span>}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-              <DropdownMenuLabel>Select a Genre</DropdownMenuLabel>
+              <DropdownMenuLabel>Select a Category</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuCheckboxItem checked={!genreFilter} onCheckedChange={() => setGenreFilter(null)}>
-                All Genres
+              <DropdownMenuCheckboxItem checked={!categoryFilter} onCheckedChange={() => setCategoryFilter(null)}>
+                All Categories
               </DropdownMenuCheckboxItem>
-              {allGenres.map(genre => (
+              {categoryNames.map(category => (
                 <DropdownMenuCheckboxItem 
-                  key={genre} 
-                  checked={genreFilter === genre} 
-                  onCheckedChange={() => setGenreFilter(genre)}
+                  key={category} 
+                  checked={categoryFilter === category} 
+                  onCheckedChange={() => setCategoryFilter(category)}
                 >
-                  {genre}
+                  <div className="flex items-center gap-2">
+                     <div className="w-3 h-3 rounded-full" style={{ backgroundColor: CATEGORIES[category as keyof typeof CATEGORIES] }} />
+                     <span>{category}</span>
+                  </div>
                 </DropdownMenuCheckboxItem>
               ))}
             </DropdownMenuContent>
@@ -75,10 +77,10 @@ function MainUI() {
         ) : (
           <div className="text-center text-muted-foreground border-2 border-dashed border-border rounded-lg p-12 mt-8 max-w-md mx-auto">
             <Radio className="mx-auto h-12 w-12 text-muted-foreground/50" />
-            <h3 className="mt-4 text-lg font-semibold">{genreFilter ? `No Stations in "${genreFilter}"` : "No Stations Yet"}</h3>
-            <p className="mt-1 text-sm">{genreFilter ? 'Try a different filter or add a new station.' : 'Add a station to get started!'}</p>
-            {genreFilter ? (
-              <Button onClick={() => setGenreFilter(null)} className="mt-6" variant="secondary">
+            <h3 className="mt-4 text-lg font-semibold">{categoryFilter ? `No Stations in "${categoryFilter}"` : "No Stations Yet"}</h3>
+            <p className="mt-1 text-sm">{categoryFilter ? 'Try a different filter or add a new station.' : 'Add a station to get started!'}</p>
+            {categoryFilter ? (
+              <Button onClick={() => setCategoryFilter(null)} className="mt-6" variant="secondary">
                 <X className="mr-2 h-4 w-4" />
                 Clear Filter
               </Button>

@@ -7,7 +7,10 @@ import { Button } from '@/components/ui/button';
 import { PlusCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { iconNames, ICONS, GENRES } from '@/lib/data';
+import { iconNames, ICONS } from '@/lib/data';
+import { CATEGORIES } from '@/lib/categories';
+
+const categoryNames = Object.keys(CATEGORIES) as (keyof typeof CATEGORIES)[];
 
 export function AddStationForm() {
   const { addStation } = useAppContext();
@@ -15,20 +18,21 @@ export function AddStationForm() {
   const [genre, setGenre] = useState('');
   const [url, setUrl] = useState('');
   const [icon, setIcon] = useState<keyof typeof ICONS>('Radio');
+  const [category, setCategory] = useState<keyof typeof CATEGORIES>(categoryNames[0]);
   const { toast } = useToast();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !genre) {
+    if (!name || !genre || !category) {
       toast({
         variant: "destructive",
         title: "Validation Error",
-        description: "Station Name and Genre are required.",
+        description: "Station Name, Genre, and Category are required.",
       });
       return;
     }
 
-    addStation({ name, genre, url, icon });
+    addStation({ name, genre, category, url, icon });
     toast({
       title: "Station Added!",
       description: `${name} has been added to your list.`,
@@ -39,6 +43,7 @@ export function AddStationForm() {
     setGenre('');
     setUrl('');
     setIcon('Radio');
+    setCategory(categoryNames[0]);
   };
 
   return (
@@ -54,13 +59,27 @@ export function AddStationForm() {
       </div>
       <div className="space-y-2">
         <label htmlFor="station-genre" className="text-sm font-medium">Genre</label>
-        <Select value={genre} onValueChange={setGenre}>
-            <SelectTrigger id="station-genre">
-                <SelectValue placeholder="Select a genre" />
+        <Input
+          id="station-genre"
+          placeholder="e.g., 80s Retro, Lofi Hip-Hop"
+          value={genre}
+          onChange={(e) => setGenre(e.target.value)}
+        />
+      </div>
+      <div className="space-y-2">
+        <label htmlFor="station-category" className="text-sm font-medium">Category</label>
+        <Select value={category} onValueChange={(value) => setCategory(value as keyof typeof CATEGORIES)}>
+            <SelectTrigger id="station-category">
+                <SelectValue placeholder="Select a category" />
             </SelectTrigger>
             <SelectContent>
-                {GENRES.map(g => (
-                    <SelectItem key={g} value={g}>{g}</SelectItem>
+                {categoryNames.map(cat => (
+                    <SelectItem key={cat} value={cat}>
+                        <div className="flex items-center gap-2">
+                           <div className="w-3 h-3 rounded-full" style={{ backgroundColor: CATEGORIES[cat] }} />
+                           <span>{cat}</span>
+                        </div>
+                    </SelectItem>
                 ))}
             </SelectContent>
         </Select>
