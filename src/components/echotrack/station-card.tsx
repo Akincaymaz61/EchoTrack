@@ -80,7 +80,11 @@ export function StationCard({ station }: StationCardProps) {
                 audioRef.current.volume = 0.5;
                 await audioRef.current.play();
                 setIsPlaying(true);
-            } catch (e) {
+            } catch (e: any) {
+                // Ignore AbortError which happens on pause
+                if (e.name === 'AbortError') {
+                    return;
+                }
                 console.error("Error playing audio:", e);
                 toast({
                     variant: "destructive",
