@@ -8,18 +8,21 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Star, Music, Loader2, BrainCircuit, X, PowerOff, Play, Pause } from 'lucide-react';
+import { Star, Music, Loader2, BrainCircuit, X, PowerOff, Play, Pause, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { getTrendSummary, fetchNowPlaying } from '@/app/actions';
+import { EditStationForm } from '@/components/echotrack/edit-station-form';
 import {
   AlertDialog,
   AlertDialogAction,
+  AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 
 type StationCardProps = {
@@ -39,6 +42,7 @@ export function StationCard({ station }: StationCardProps) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<string | null>(null);
   const [isAnalysisDialogOpen, setIsAnalysisDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const { toast } = useToast();
@@ -68,6 +72,8 @@ export function StationCard({ station }: StationCardProps) {
             setIsPlaying(false);
         } else {
             try {
+                // Set volume to 0.5 to avoid being too loud
+                audioRef.current.volume = 0.5;
                 audioRef.current.play();
                 setIsPlaying(true);
             } catch (e) {
@@ -101,8 +107,6 @@ export function StationCard({ station }: StationCardProps) {
       return;
     }
 
-    // Don't set loading to true for subsequent background fetches
-    // setIsLoading(true); 
     const result = await fetchNowPlaying(station.url);
     if(isLoading) setIsLoading(false);
 
@@ -111,7 +115,6 @@ export function StationCard({ station }: StationCardProps) {
       setCurrentSong(null);
     } else if (result.song) {
       setError(null);
-      // Only update if the song is different
       if (result.song.title !== currentSong?.title || result.song.artist !== currentSong?.artist) {
         const newSong: CurrentSongInfo = {
             id: `song-${Date.now()}`,
@@ -120,7 +123,6 @@ export function StationCard({ station }: StationCardProps) {
         };
         setCurrentSong(newSong);
         
-        // Log the new song
         logSong({
             artist: newSong.artist,
             title: newSong.title,
@@ -131,11 +133,8 @@ export function StationCard({ station }: StationCardProps) {
   }, [station.url, station.name, currentSong?.title, currentSong?.artist, logSong, isLoading]);
 
   useEffect(() => {
-    updateNowPlaying(); // Fetch immediately on mount
-    // And then fetch every 15 seconds
+    updateNowPlaying();
     intervalRef.current = setInterval(updateNowPlaying, 15000);
-
-    // Cleanup on unmount
     return () => {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
@@ -153,25 +152,20 @@ export function StationCard({ station }: StationCardProps) {
         description: `${currentSong?.title} by ${currentSong?.artist}`,
       });
     } else if (currentSong) {
-        // This case handles favoriting a song that was just fetched but not yet in the main log
         const newSongEntry: Omit<Song, 'id' | 'timestamp' | 'isFavorite'> = {
             artist: currentSong.artist,
             title: currentSong.title,
             stationName: station.name,
         };
-        logSong(newSongEntry);
-        // We need to find the just-added song to favorite it. This is a bit of a workaround.
-        setTimeout(() => {
-            const latestSong = loggedSongs.find(s => s.title === currentSong.title && s.artist === currentSong.artist && s.stationName === station.name);
-            if(latestSong) {
-                toggleFavorite(latestSong.id);
-            }
-        }, 100);
-
-        toast({
-            title: "Added to Favorites",
-            description: `${currentSong.title} by ${currentSong.artist}`,
-        });
+        const newId = logSong(newSongEntry);
+        
+        if (newId) {
+            toggleFavorite(newId);
+            toast({
+                title: "Added to Favorites",
+                description: `${currentSong.title} by ${currentSong.artist}`,
+            });
+        }
     }
   };
   
@@ -218,14 +212,36 @@ export function StationCard({ station }: StationCardProps) {
   return (
     <>
       <Card className="flex flex-col justify-between transition-all duration-300 hover:shadow-primary/20 hover:shadow-lg border-transparent bg-card/50 backdrop-blur-sm relative group">
-        <Button variant="ghost" size="icon" className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity z-10" onClick={handleRemoveStation}>
-            <X className="w-4 h-4"/>
-            <span className="sr-only">Remove station</span>
-        </Button>
+        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setIsEditDialogOpen(true)}>
+                <Pencil className="w-4 h-4"/>
+                <span className="sr-only">Edit station</span>
+            </Button>
+            <AlertDialog>
+                <AlertDialogTrigger asChild>
+                    <Button variant="ghost" size="icon" className="h-7 w-7">
+                        <X className="w-4 h-4"/>
+                        <span className="sr-only">Remove station</span>
+                    </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            This will permanently remove the "{station.name}" station from your list.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleRemoveStation}>Remove</AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+        </div>
         <CardHeader>
           <div className="flex items-start justify-between gap-4">
             <div>
-              <CardTitle className="font-headline text-xl flex items-center gap-2">
+              <CardTitle className="font-headline text-xl flex items-center gap-2 pr-16">
                 <Icon className="w-6 h-6 text-primary" />
                 {station.name}
               </CardTitle>
@@ -291,8 +307,12 @@ export function StationCard({ station }: StationCardProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <EditStationForm 
+        station={station}
+        isOpen={isEditDialogOpen}
+        setIsOpen={setIsEditDialogOpen}
+      />
     </>
   );
 }
-
-    

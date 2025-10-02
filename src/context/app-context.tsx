@@ -8,9 +8,10 @@ import { STATIONS as initialStations } from '@/lib/data';
 interface AppContextType {
   stations: Station[];
   addStation: (station: Omit<Station, 'id'>) => void;
+  updateStation: (stationId: string, stationData: Partial<Omit<Station, 'id'>>) => void;
   removeStation: (stationId: string) => void;
   loggedSongs: Song[];
-  logSong: (song: Omit<Song, 'id' | 'timestamp' | 'isFavorite'>) => void;
+  logSong: (song: Omit<Song, 'id' | 'timestamp' | 'isFavorite'>) => string | undefined;
   toggleFavorite: (songId: string) => void;
   exportAllSongs: () => void;
   exportFavoriteSongs: () => void;
@@ -23,7 +24,6 @@ function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((val
   const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    // This effect runs only on the client, after the initial render
     try {
       const item = window.localStorage.getItem(key);
       if (item) {
@@ -50,8 +50,6 @@ function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((val
     }
   };
   
-  // Return the initial value until the component has mounted and localStorage is read
-  // This helps prevent hydration mismatch
   return [isInitialized ? storedValue : initialValue, setValue];
 }
 
@@ -67,28 +65,37 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     };
     setStations(prevStations => [...prevStations, newStation]);
   }, [setStations]);
+  
+  const updateStation = useCallback((stationId: string, stationData: Partial<Omit<Station, 'id'>>) => {
+    setStations(prevStations =>
+      prevStations.map(s => (s.id === stationId ? { ...s, ...stationData } : s))
+    );
+  }, [setStations]);
 
   const removeStation = useCallback((stationId: string) => {
     setStations(prevStations => prevStations.filter(s => s.id !== stationId));
   }, [setStations]);
 
-  const logSong = useCallback((songData: Omit<Song, 'id' | 'timestamp' | 'isFavorite'>) => {
+  const logSong = useCallback((songData: Omit<Song, 'id' | 'timestamp' | 'isFavorite'>): string | undefined => {
+     let newSongId: string | undefined = undefined;
      setLoggedSongs(currentSongs => {
         if (currentSongs.length > 0) {
             const lastSong = currentSongs[0];
             if (lastSong.title === songData.title && lastSong.artist === songData.artist && lastSong.stationName === songData.stationName) {
-                return currentSongs; // Don't log the same song twice in a row for the same station
+                return currentSongs;
             }
         }
           
         const newSong: Song = {
           ...songData,
           id: `song-${Date.now()}-${Math.random()}`,
-          timestamp: new Date().toISOString(), // Use ISO string for serialization
+          timestamp: new Date().toISOString(),
           isFavorite: false,
         };
+        newSongId = newSong.id;
         return [newSong, ...currentSongs];
      });
+     return newSongId;
   }, [setLoggedSongs]);
 
   const toggleFavorite = useCallback((songId: string) => {
@@ -117,6 +124,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const value = {
     stations,
     addStation,
+    updateStation,
     removeStation,
     loggedSongs: songsWithDates,
     logSong,

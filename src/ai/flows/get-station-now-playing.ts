@@ -11,7 +11,8 @@
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import * as http from 'http';
-import { Stream } from 'stream';
+import * as https from 'https';
+import { URL } from 'url';
 
 const GetStationNowPlayingInputSchema = z.object({
   url: z.string().url().describe('The URL of the radio stream.'),
@@ -33,15 +34,59 @@ export async function getStationNowPlaying(input: GetStationNowPlayingInput): Pr
 
 async function fetchStreamMetadata(streamUrl: string): Promise<{ artist?: string; title?: string; error?: string }> {
     return new Promise((resolve) => {
-        const req = http.get(streamUrl, { headers: { 'Icy-MetaData': '1' } }, (res) => {
+        const url = new URL(streamUrl);
+        const protocol = url.protocol === 'https протоколы:' ? https : http;
+        
+        const options = {
+            hostname: url.hostname,
+            port: url.port || (url.protocol === 'https:' ? 443 : 80),
+            path: url.pathname + url.search,
+            headers: { 
+                'Icy-MetaData': '1',
+                'User-Agent': 'EchoTrack/1.0',
+            },
+        };
+
+        const req = protocol.get(options, (res) => {
+            // Handle redirects
+            if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+                res.destroy();
+                // To avoid infinite loops, only follow a few redirects.
+                // For this implementation, we'll just follow one.
+                return fetchStreamMetadata(res.headers.location).then(resolve).catch(e => resolve({ error: `Redirect failed: ${e.message}`}));
+            }
+
             let metaInt = 0;
             if (res.headers['icy-metaint']) {
                 metaInt = parseInt(res.headers['icy-metaint'] as string, 10);
             }
 
             if (!metaInt) {
-                res.destroy();
-                return resolve({ error: 'Stream does not support metadata.' });
+                // Check for SHOUTcast v1 style metadata on status page
+                const statusPath = url.pathname.endsWith('/') ? `${url.pathname}7.html` : `${url.pathname}/7.html`;
+                const statusOptions = { ...options, path: statusPath };
+                
+                protocol.get(statusOptions, (statusRes) => {
+                     let body = '';
+                     statusRes.on('data', chunk => body += chunk);
+                     statusRes.on('end', () => {
+                        const match = body.match(/<body.*?>.*?Current Song: (.*?)<\/body>/ims);
+                        if (match && match[1]) {
+                             const streamTitle = match[1].trim();
+                             const parts = streamTitle.split(' - ');
+                             if (parts.length >= 2) {
+                                 resolve({ artist: parts[0].trim(), title: parts.slice(1).join(' - ').trim() });
+                             } else {
+                                 resolve({ title: streamTitle });
+                             }
+                        } else {
+                            resolve({ error: 'Stream does not support Icy-MetaData and is not a SHOUTcast v1 stream.' });
+                        }
+                     });
+                }).on('error', () => {
+                     resolve({ error: 'Stream does not support Icy-MetaData.' });
+                });
+                return;
             }
             
             let buffer = Buffer.alloc(0);
@@ -50,7 +95,6 @@ async function fetchStreamMetadata(streamUrl: string): Promise<{ artist?: string
                 buffer = Buffer.concat([buffer, chunk]);
                 
                 if (buffer.length >= metaInt) {
-                    // We have enough data to potentially read metadata
                     const metadataLengthByte = buffer[metaInt];
                     const metadataLength = metadataLengthByte * 16;
                     const metadataEnd = metaInt + 1 + metadataLength;
@@ -60,18 +104,17 @@ async function fetchStreamMetadata(streamUrl: string): Promise<{ artist?: string
                         const metadata = new URLSearchParams(metadataRaw.replace(/\0/g, ''));
                         const streamTitle = metadata.get('StreamTitle');
 
-                        res.destroy(); // We got what we needed, close connection
+                        res.destroy(); 
 
                         if (streamTitle) {
                             const parts = streamTitle.split(' - ');
-                            // Basic filter for ads/jingles: requires a separator and avoids common non-song patterns.
-                            if (parts.length >= 2 && !streamTitle.toLowerCase().includes('advertising') && !streamTitle.toLowerCase().includes('commercial')) {
+                            if (parts.length >= 2 && !/ad|advert|commercial/i.test(streamTitle) && streamTitle.length > 5) {
                                 resolve({ artist: parts[0].trim(), title: parts.slice(1).join(' - ').trim() });
-                            } else if (parts.length < 2) {
-                                resolve({ error: 'Not a song title.' });
+                            } else if (parts.length === 1 && !/ad|advert|commercial/i.test(streamTitle) && streamTitle.length > 5) {
+                                resolve({ title: streamTitle.trim() });
                             }
                              else {
-                                resolve({ title: streamTitle.trim() });
+                                resolve({ error: 'Metadata does not appear to be a song title.' });
                             }
                         } else {
                             resolve({ error: 'No StreamTitle found in metadata.' });
@@ -85,15 +128,16 @@ async function fetchStreamMetadata(streamUrl: string): Promise<{ artist?: string
             res.on('end', () => {
                 resolve({ error: 'Stream ended before metadata could be read.' });
             });
-
-            // Timeout to prevent hanging connections
-            setTimeout(() => {
-                res.destroy();
-                resolve({ error: 'Metadata fetch timed out.' });
-            }, 5000); // 5 seconds timeout
         });
+        
+        // Timeout to prevent hanging connections
+        const timeout = setTimeout(() => {
+            req.destroy();
+            resolve({ error: 'Metadata fetch timed out.' });
+        }, 5000);
 
         req.on('error', (e) => {
+            clearTimeout(timeout);
             resolve({ error: `Request error: ${e.message}` });
         });
         
@@ -114,11 +158,11 @@ const getStationNowPlayingFlow = ai.defineFlow(
         if (metadata.error) {
             return { error: metadata.error };
         }
-        if (!metadata.artist || !metadata.title) {
-            return { error: 'Could not parse artist and title.' };
+        if (!metadata.title) {
+            return { error: 'Could not parse song title from stream.' };
         }
         return {
-            artist: metadata.artist,
+            artist: metadata.artist || 'Unknown Artist',
             title: metadata.title,
         };
     } catch (e: any) {
