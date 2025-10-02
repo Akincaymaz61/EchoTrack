@@ -123,15 +123,11 @@ export function StationCard({ station }: StationCardProps) {
   const updateNowPlaying = useCallback(async (isInitialLoad = false) => {
     if (!station.url) {
       setError("No stream URL for this station.");
-      if (isInitialLoad) {
-          setIsLoading(false);
-      }
+      if (isInitialLoad) setIsLoading(false);
       return;
     }
     
-    if (isInitialLoad) {
-      setIsLoading(true);
-    }
+    if (isInitialLoad) setIsLoading(true);
 
     try {
         const result = await fetchNowPlaying(station.url);
@@ -163,9 +159,7 @@ export function StationCard({ station }: StationCardProps) {
     } catch (e: any) {
         setError("Failed to fetch now playing data.");
     } finally {
-        if (isInitialLoad) {
-            setIsLoading(false);
-        }
+        if (isInitialLoad) setIsLoading(false);
     }
   }, [station.url, station.name, logSong]);
 
@@ -349,5 +343,3 @@ export function StationCard({ station }: StationCardProps) {
     </>
   );
 }
-
-    
