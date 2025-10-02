@@ -1,5 +1,3 @@
-# Firebase Studio
+# EchoTrack
 
-This is a NextJS starter in Firebase Studio.
-
-To get started, take a look at src/app/page.tsx.
+A song discovery and tracking app that simultaneously monitors multiple AI-powered online radio stations.
