@@ -5,7 +5,7 @@ export type Song = {
   id: string;
   artist: string;
   title: string;
-  timestamp: Date;
+  timestamp: Date | string;
   stationName: string;
   isFavorite: boolean;
 };

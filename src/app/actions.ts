@@ -2,6 +2,7 @@
 
 import { suggestStationsFromPrompt } from '@/ai/flows/suggest-stations-from-prompt';
 import { summarizeStationTrends } from '@/ai/flows/summarize-station-trends';
+import { getStationNowPlaying } from '@/ai/flows/get-station-now-playing';
 import { z } from 'zod';
 
 const suggestionSchema = z.object({
@@ -50,4 +51,24 @@ export async function getTrendSummary(stationName: string, songHistory: { artist
     console.error(error);
     return { summary: null, error: 'Failed to analyze trends due to an AI service error.' };
   }
+}
+
+export async function fetchNowPlaying(url: string) {
+    if (!url) {
+        return { song: null, error: "No URL provided." };
+    }
+
+    try {
+        const result = await getStationNowPlaying({ url });
+        if (result.error) {
+            return { song: null, error: result.error };
+        }
+        if(result.title) {
+            return { song: { title: result.title, artist: result.artist || 'Unknown Artist' }, error: null };
+        }
+        return { song: null, error: "Could not retrieve song information." };
+    } catch (error) {
+        console.error(error);
+        return { song: null, error: 'Server action failed to get now playing info.' };
+    }
 }

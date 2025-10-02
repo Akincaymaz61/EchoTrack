@@ -3,14 +3,14 @@
 import type { Song, Station } from '@/lib/types';
 import { ICONS } from '@/lib/data';
 import { useAppContext } from '@/context/app-context';
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Star, Music, Loader2, BrainCircuit, X } from 'lucide-react';
+import { Star, Music, Loader2, BrainCircuit, X, PowerOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import { getTrendSummary } from '@/app/actions';
+import { getTrendSummary, fetchNowPlaying } from '@/app/actions';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,45 +25,115 @@ type StationCardProps = {
   station: Station;
 };
 
+type CurrentSongInfo = {
+  id: string;
+  artist: string;
+  title: string;
+}
+
 export function StationCard({ station }: StationCardProps) {
   const { logSong, loggedSongs, toggleFavorite, removeStation } = useAppContext();
-  const [currentSong, setCurrentSong] = useState<Song | null>(null);
+  const [currentSong, setCurrentSong] = useState<CurrentSongInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState<string | null>(null);
   const [isAnalysisDialogOpen, setIsAnalysisDialogOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+
+  const intervalRef = useRef<NodeJS.Timeout>();
 
   const Icon = ICONS[station.icon] || Music;
 
   const isCurrentSongFavorite = useMemo(() => {
     if (!currentSong) return false;
-    const loggedVersion = loggedSongs.find(s => s.id === currentSong.id);
+    const loggedVersion = loggedSongs.find(s => s.title === currentSong.title && s.artist === currentSong.artist && s.stationName === station.name);
     return loggedVersion ? loggedVersion.isFavorite : false;
-  }, [currentSong, loggedSongs]);
+  }, [currentSong, loggedSongs, station.name]);
+  
+  const loggedId = useMemo(() => {
+     if (!currentSong) return null;
+     const loggedVersion = loggedSongs.find(s => s.title === currentSong.title && s.artist === currentSong.artist && s.stationName === station.name);
+     return loggedVersion?.id;
+  },[currentSong, loggedSongs, station.name]);
+
+  const updateNowPlaying = useCallback(async () => {
+    if (!station.url) {
+      setError("No stream URL for this station.");
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    const result = await fetchNowPlaying(station.url);
+    setIsLoading(false);
+
+    if (result.error) {
+      setError(result.error);
+      setCurrentSong(null);
+    } else if (result.song) {
+      setError(null);
+      // Only update if the song is different
+      if (result.song.title !== currentSong?.title || result.song.artist !== currentSong?.artist) {
+        const newSong: CurrentSongInfo = {
+            id: `song-${Date.now()}`,
+            artist: result.song.artist,
+            title: result.song.title,
+        };
+        setCurrentSong(newSong);
+        
+        // Log the new song
+        logSong({
+            artist: newSong.artist,
+            title: newSong.title,
+            stationName: station.name,
+        });
+      }
+    }
+  }, [station.url, station.name, currentSong?.title, currentSong?.artist, logSong]);
 
   useEffect(() => {
-    // This is now a placeholder. In the future, this would fetch from the station.url
-    setIsLoading(false);
-    setCurrentSong({
-        id: `song-${Date.now()}`,
-        artist: "Broadcast",
-        title: "...",
-        stationName: station.name,
-        timestamp: new Date(),
-        isFavorite: false,
-    });
-  }, [station.name, station.url]);
+    updateNowPlaying(); // Fetch immediately on mount
+    // And then fetch every 15 seconds
+    intervalRef.current = setInterval(updateNowPlaying, 15000);
+
+    // Cleanup on unmount
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, [updateNowPlaying]);
 
 
   const handleFavoriteClick = () => {
-    if (currentSong) {
-      toggleFavorite(currentSong.id);
+    if (loggedId) {
+      toggleFavorite(loggedId);
       const isFav = isCurrentSongFavorite;
       toast({
         title: isFav ? "Removed from Favorites" : "Added to Favorites",
-        description: `${currentSong.title} by ${currentSong.artist}`,
+        description: `${currentSong?.title} by ${currentSong?.artist}`,
       });
+    } else if (currentSong) {
+        // This case handles favoriting a song that was just fetched but not yet in the main log
+        const newSongEntry: Omit<Song, 'id' | 'timestamp' | 'isFavorite'> = {
+            artist: currentSong.artist,
+            title: currentSong.title,
+            stationName: station.name,
+        };
+        logSong(newSongEntry);
+        // We need to find the just-added song to favorite it. This is a bit of a workaround.
+        setTimeout(() => {
+            const latestSong = loggedSongs[0];
+            if(latestSong.title === currentSong.title) {
+                toggleFavorite(latestSong.id);
+            }
+        }, 100);
+
+        toast({
+            title: "Added to Favorites",
+            description: `${currentSong.title} by ${currentSong.artist}`,
+        });
     }
   };
   
@@ -81,7 +151,7 @@ export function StationCard({ station }: StationCardProps) {
       .filter(s => s.stationName === station.name)
       .map(s => ({ artist: s.artist, title: s.title, timestamp: s.timestamp.toISOString() }));
 
-    if (stationHistory.length < 1) { // Changed from 3 to 1 for placeholder
+    if (stationHistory.length < 1) { 
       toast({
         variant: "destructive",
         title: "Not Enough Data",
@@ -125,10 +195,14 @@ export function StationCard({ station }: StationCardProps) {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="flex-grow flex flex-col justify-center items-center text-center animate-in fade-in duration-500">
+        <CardContent className="flex-grow flex flex-col justify-center items-center text-center min-h-[100px] animate-in fade-in duration-500">
           {isLoading ? (
             <div className="space-y-2 w-full">
-              <Skeleton className="h-6 w-3/4 mx-auto" />
+                <div className="flex justify-center items-center gap-2 text-muted-foreground">
+                    <Loader2 className="w-5 h-5 animate-spin"/>
+                    <span>Tuning in...</span>
+                </div>
+              <Skeleton className="h-6 w-3/4 mx-auto mt-2" />
               <Skeleton className="h-4 w-1/2 mx-auto" />
             </div>
           ) : currentSong ? (
@@ -138,7 +212,11 @@ export function StationCard({ station }: StationCardProps) {
               <p className="text-md text-muted-foreground">{currentSong.artist}</p>
             </>
           ) : (
-             <p className="text-md text-muted-foreground">Station Offline</p>
+             <div className="flex flex-col items-center gap-2 text-muted-foreground">
+                <PowerOff className="w-8 h-8"/>
+                <p className="font-semibold">{error || 'Station Offline'}</p>
+                <p className="text-xs max-w-xs truncate">{station.url}</p>
+             </div>
           )}
         </CardContent>
         <CardFooter className="flex justify-between items-center gap-2">
