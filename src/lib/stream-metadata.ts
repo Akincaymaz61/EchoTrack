@@ -1,38 +1,15 @@
-
-'use server';
-
-/**
- * @fileOverview Fetches the currently playing song from a radio stream URL.
- *
- * - getStationNowPlaying - A function that takes a stream URL and attempts to fetch the "Now Playing" metadata.
- * - GetStationNowPlayingInput - The input type for the function.
- * - GetStationNowPlayingOutput - The return type for the function.
- */
-
-import { ai } from '@/ai/genkit';
-import { z } from 'zod';
 import * as http from 'http';
 import * as https from 'https';
 import { URL } from 'url';
+import { z } from 'zod';
 
-const GetStationNowPlayingInputSchema = z.object({
-  url: z.string().url().describe('The URL of the radio stream or website.'),
-});
-export type GetStationNowPlayingInput = z.infer<typeof GetStationNowPlayingInputSchema>;
-
-const GetStationNowPlayingOutputSchema = z.object({
-  artist: z.string().optional(),
-  title: z.string().optional(),
-  error: z.string().optional(),
-});
-export type GetStationNowPlayingOutput = z.infer<typeof GetStationNowPlayingOutputSchema>;
-
-
-export async function getStationNowPlaying(input: GetStationNowPlayingInput): Promise<GetStationNowPlayingOutput> {
-  return getStationNowPlayingFlow(input);
+export type NowPlaying = {
+  artist?: string;
+  title?: string;
+  error?: string;
 }
 
-async function fetchStreamMetadata(streamUrl: string, redirectCount = 0): Promise<{ artist?: string; title?: string; error?: string }> {
+async function fetchStreamMetadata(streamUrl: string, redirectCount = 0): Promise<NowPlaying> {
     if (redirectCount > 5) {
         return Promise.resolve({ error: 'Too many redirects.' });
     }
@@ -143,35 +120,27 @@ async function fetchStreamMetadata(streamUrl: string, redirectCount = 0): Promis
     });
 }
 
-
-const getStationNowPlayingFlow = ai.defineFlow(
-  {
-    name: 'getStationNowPlayingFlow',
-    inputSchema: GetStationNowPlayingInputSchema,
-    outputSchema: GetStationNowPlayingOutputSchema,
-  },
-  async ({ url }) => {
-    const urlValidation = z.string().url().safeParse(url);
-    if (!urlValidation.success) {
-        return { error: 'Invalid URL format provided.' };
-    }
-    
-    try {
-        const metadata = await fetchStreamMetadata(url);
-
-        if (metadata.error) {
-            return { error: metadata.error };
-        }
-        if (!metadata.title) {
-            return { error: 'Could not parse song title from stream.' };
-        }
-        return {
-            artist: metadata.artist || 'Unknown Artist',
-            title: metadata.title,
-        };
-    } catch (e: any) {
-        console.error("Error in getStationNowPlayingFlow", e);
-        return { error: e.message || 'An unknown error occurred while fetching stream data.' };
-    }
+export async function getStationNowPlaying(url: string): Promise<NowPlaying> {
+  const urlValidation = z.string().url().safeParse(url);
+  if (!urlValidation.success) {
+      return { error: 'Invalid URL format provided.' };
   }
-);
+  
+  try {
+      const metadata = await fetchStreamMetadata(url);
+
+      if (metadata.error) {
+          return { error: metadata.error };
+      }
+      if (!metadata.title) {
+          return { error: 'Could not parse song title from stream.' };
+      }
+      return {
+          artist: metadata.artist || 'Unknown Artist',
+          title: metadata.title,
+      };
+  } catch (e: any) {
+      console.error("Error in getStationNowPlaying", e);
+      return { error: e.message || 'An unknown error occurred while fetching stream data.' };
+  }
+}

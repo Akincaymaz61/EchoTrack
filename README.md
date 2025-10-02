@@ -32,7 +32,6 @@ Bu uygulama ile, kendi radyo istasyonu koleksiyonunuzu oluşturabilir, onları r
 *   **UI Kütüphanesi:** [React](https://react.dev/)
 *   **Styling:** [Tailwind CSS](https://tailwindcss.com/)
 *   **Bileşenler:** [shadcn/ui](https://ui.shadcn.com/)
-*   **AI & Sunucu İşlemleri:** [Google Genkit](https://firebase.google.com/docs/genkit) (Next.js Entegrasyonu ile)
 *   **İkonlar:** [Lucide React](https://lucide.dev/)
 
 ---

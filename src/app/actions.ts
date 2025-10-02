@@ -1,6 +1,6 @@
 'use server';
 
-import { getStationNowPlaying } from '@/ai/flows/get-station-now-playing';
+import { getStationNowPlaying } from '@/lib/stream-metadata';
 
 export async function fetchNowPlaying(url: string) {
     if (!url) {
@@ -8,7 +8,7 @@ export async function fetchNowPlaying(url: string) {
     }
 
     try {
-        const result = await getStationNowPlaying({ url });
+        const result = await getStationNowPlaying(url);
         if (result.error) {
             return { song: null, error: result.error };
         }
