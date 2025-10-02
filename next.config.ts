@@ -30,6 +30,11 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  devIndicators: {
+    allowedDevOrigins: [
+      'https://6000-firebase-studio-1759380189899.cluster-oayqgyglpfgseqclbygurw4xd4.cloudworkstations.dev',
+    ],
+  },
 };
 
 export default nextConfig;
