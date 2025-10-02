@@ -1,8 +1,7 @@
 
 'use client';
 
-import React, { useState } from 'react';
-import { useActionState } from 'react';
+import { useState, useActionState } from 'react';
 import { getStationSuggestions, StationSuggestionState } from '@/app/actions';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
