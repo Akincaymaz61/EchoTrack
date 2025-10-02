@@ -37,9 +37,10 @@ export async function getStationSuggestions(prevState: StationSuggestionState, f
     };
   } catch (error) {
     console.error(error);
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
     return {
       stations: [],
-      message: 'AI service failed to get suggestions. Please try again later.',
+      message: `AI service failed to get suggestions: ${errorMessage}`,
     };
   }
 }
@@ -54,7 +55,8 @@ export async function getTrendSummary(stationName: string, songHistory: { artist
     return { summary: result.summary, error: null };
   } catch (error) {
     console.error(error);
-    return { summary: null, error: 'Failed to analyze trends due to an AI service error.' };
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
+    return { summary: null, error: `Failed to analyze trends: ${errorMessage}` };
   }
 }
 
@@ -74,6 +76,7 @@ export async function fetchNowPlaying(url: string) {
         return { song: null, error: "Could not retrieve song information." };
     } catch (error) {
         console.error(error);
-        return { song: null, error: 'Server action failed to get now playing info.' };
+        const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred.';
+        return { song: null, error: `Server action failed: ${errorMessage}` };
     }
 }
