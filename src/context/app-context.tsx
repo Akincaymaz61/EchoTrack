@@ -18,21 +18,22 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T) => void] {
-  const [storedValue, setStoredValue] = useState<T>(() => {
-    if (typeof window === 'undefined') {
-      return initialValue;
-    }
+function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((val: T) => T)) => void] {
+  const [storedValue, setStoredValue] = useState<T>(initialValue);
+
+  useEffect(() => {
+    // This effect runs only on the client, after the initial render
     try {
       const item = window.localStorage.getItem(key);
-      return item ? JSON.parse(item) : initialValue;
+      if (item) {
+        setStoredValue(JSON.parse(item));
+      }
     } catch (error) {
       console.log(error);
-      return initialValue;
     }
-  });
+  }, [key]);
 
-  const setValue = (value: T) => {
+  const setValue = (value: T | ((val: T) => T)) => {
     try {
       const valueToStore = value instanceof Function ? value(storedValue) : value;
       setStoredValue(valueToStore);
@@ -57,38 +58,39 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       ...stationData,
       id: `station-${Date.now()}-${Math.random()}`,
     };
-    setStations([...stations, newStation]);
-  }, [stations, setStations]);
+    setStations(prevStations => [...prevStations, newStation]);
+  }, [setStations]);
 
   const removeStation = useCallback((stationId: string) => {
-    setStations(stations.filter(s => s.id !== stationId));
-  }, [stations, setStations]);
+    setStations(prevStations => prevStations.filter(s => s.id !== stationId));
+  }, [setStations]);
 
   const logSong = useCallback((songData: Omit<Song, 'id' | 'timestamp' | 'isFavorite'>) => {
-     // Check if the most recent song is the same
-    if (loggedSongs.length > 0) {
-        const lastSong = loggedSongs[0];
-        if (lastSong.title === songData.title && lastSong.artist === songData.artist && lastSong.stationName === songData.stationName) {
-            return; // Don't log the same song twice in a row for the same station
+     setLoggedSongs(currentSongs => {
+        if (currentSongs.length > 0) {
+            const lastSong = currentSongs[0];
+            if (lastSong.title === songData.title && lastSong.artist === songData.artist && lastSong.stationName === songData.stationName) {
+                return currentSongs; // Don't log the same song twice in a row for the same station
+            }
         }
-    }
-      
-    const newSong: Song = {
-      ...songData,
-      id: `song-${Date.now()}-${Math.random()}`,
-      timestamp: new Date().toISOString(), // Use ISO string for serialization
-      isFavorite: false,
-    };
-    setLoggedSongs([newSong, ...loggedSongs]);
-  }, [loggedSongs, setLoggedSongs]);
+          
+        const newSong: Song = {
+          ...songData,
+          id: `song-${Date.now()}-${Math.random()}`,
+          timestamp: new Date().toISOString(), // Use ISO string for serialization
+          isFavorite: false,
+        };
+        return [newSong, ...currentSongs];
+     });
+  }, [setLoggedSongs]);
 
   const toggleFavorite = useCallback((songId: string) => {
     setLoggedSongs(
-      loggedSongs.map(song =>
+      currentSongs => currentSongs.map(song =>
         song.id === songId ? { ...song, isFavorite: !song.isFavorite } : song
       )
     );
-  }, [loggedSongs, setLoggedSongs]);
+  }, [setLoggedSongs]);
 
   const exportAllSongs = useCallback(() => {
     const songsWithDates = loggedSongs.map(s => ({...s, timestamp: new Date(s.timestamp)}));
@@ -100,7 +102,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     exportSongsToTxt(favoriteSongs, true);
   }, [loggedSongs]);
   
-  const songsWithDates = loggedSongs.map(s => ({...s, timestamp: new Date(s.timestamp)}));
+  const songsWithDates = loggedSongs.map(s => {
+    const timestamp = typeof s.timestamp === 'string' ? new Date(s.timestamp) : s.timestamp;
+    return {...s, timestamp};
+  });
+
 
   const value = {
     stations,
