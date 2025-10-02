@@ -100,14 +100,19 @@ async function fetchStreamMetadata(streamUrl: string, redirectCount = 0): Promis
                         res.destroy(); 
 
                         if (streamTitle) {
-                            const parts = streamTitle.split(' - ');
-                            if (parts.length >= 2 && !/ad|advert|commercial|sponsor/i.test(streamTitle) && streamTitle.length > 5) {
-                                resolve({ artist: parts[0].trim(), title: parts.slice(1).join(' - ').trim() });
-                            } else if (parts.length === 1 && !/ad|advert|commercial|sponsor/i.test(streamTitle) && streamTitle.length > 5) {
-                                resolve({ title: streamTitle.trim() });
-                            }
-                            else {
+                            const isAd = /ad|advert|commercial|sponsor/i.test(streamTitle);
+                            const justNumbers = /^\d+$/.test(streamTitle.replace(/ - /g, '').trim());
+
+                            if (isAd || justNumbers || streamTitle.length < 5) {
                                 resolve({ error: 'Metadata does not appear to be a song title.' });
+                                return;
+                            }
+
+                            const parts = streamTitle.split(' - ');
+                            if (parts.length >= 2) {
+                                resolve({ artist: parts[0].trim(), title: parts.slice(1).join(' - ').trim() });
+                            } else {
+                                resolve({ title: streamTitle.trim() });
                             }
                         } else {
                             resolve({ error: 'No StreamTitle found in metadata.' });
