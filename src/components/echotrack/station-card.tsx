@@ -96,6 +96,14 @@ export function StationCard({ station }: StationCardProps) {
   }, [isPlaying, setCurrentlyPlayingStationId, toast]);
 
   const handlePlayPauseToggle = () => {
+    if (!station.url) {
+        toast({
+            variant: "destructive",
+            title: "No Stream URL",
+            description: "This station does not have a stream URL to play.",
+        });
+        return;
+    }
     if (isPlaying) {
       setCurrentlyPlayingStationId(null);
     } else {
@@ -119,7 +127,9 @@ export function StationCard({ station }: StationCardProps) {
   const updateNowPlaying = useCallback(async (isInitialLoad = false) => {
     if (!station.url) {
       setError("No stream URL for this station.");
-      setIsLoading(false);
+      if (isInitialLoad) {
+          setIsLoading(false);
+      }
       return;
     }
     
@@ -127,33 +137,39 @@ export function StationCard({ station }: StationCardProps) {
       setIsLoading(true);
     }
 
-    const result = await fetchNowPlaying(station.url);
+    try {
+        const result = await fetchNowPlaying(station.url);
+        
+        if (result.error) {
+          setError(result.error);
+        } else if (result.song) {
+          setError(null);
+          
+          setCurrentSong(prevSong => {
+              if (result.song!.title !== prevSong?.title || result.song!.artist !== prevSong?.artist) {
+                   const newSong: CurrentSongInfo = {
+                    id: `song-${Date.now()}`,
+                    artist: result.song!.artist,
+                    title: result.song!.title,
+                };
+                
+                logSong({
+                    artist: newSong.artist,
+                    title: newSong.title,
+                    stationName: station.name,
+                });
     
-    setIsLoading(false);
-
-    if (result.error) {
-      setError(result.error);
-    } else if (result.song) {
-      setError(null);
-      
-      setCurrentSong(prevSong => {
-          if (result.song!.title !== prevSong?.title || result.song!.artist !== prevSong?.artist) {
-               const newSong: CurrentSongInfo = {
-                id: `song-${Date.now()}`,
-                artist: result.song!.artist,
-                title: result.song!.title,
-            };
-            
-            logSong({
-                artist: newSong.artist,
-                title: newSong.title,
-                stationName: station.name,
-            });
-
-            return newSong;
-          }
-          return prevSong;
-      });
+                return newSong;
+              }
+              return prevSong;
+          });
+        }
+    } catch (e: any) {
+        setError("Failed to fetch now playing data.");
+    } finally {
+        if (isInitialLoad) {
+            setIsLoading(false);
+        }
     }
   }, [station.url, station.name, logSong]);
 
@@ -310,7 +326,7 @@ export function StationCard({ station }: StationCardProps) {
             <span className="sr-only">Favorite</span>
           </Button>
           
-           <Button variant="outline" size="icon" onClick={handlePlayPauseToggle} disabled={!station.url}>
+           <Button variant="outline" size="icon" onClick={handlePlayPauseToggle}>
             {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
             <span className="sr-only">{isPlaying ? 'Pause' : 'Play'}</span>
           </Button>
