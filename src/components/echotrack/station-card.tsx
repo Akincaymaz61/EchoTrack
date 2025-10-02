@@ -30,7 +30,7 @@ import {
 } from "@/components/ui/popover"
 import { SoundWave } from '@/components/echotrack/sound-wave';
 import { Badge } from '@/components/ui/badge';
-import { tinycolor } from '@ctrl/tinycolor';
+import { TinyColor } from '@ctrl/tinycolor';
 
 
 type StationCardProps = {
@@ -257,7 +257,7 @@ export function StationCard({ station }: StationCardProps) {
   }, [station.category, categories]);
 
   const colorPalette = useMemo(() => {
-    const color = tinycolor(stationColor);
+    const color = new TinyColor(stationColor);
     return {
       '--station-color-primary-hex': color.toHexString(),
       '--station-color-primary': color.toHslString(),
@@ -347,8 +347,8 @@ export function StationCard({ station }: StationCardProps) {
               </div>
             ) : currentSong ? (
               <div className="w-full">
-                <p className="text-xs text-muted-foreground font-semibold mb-1">ŞİMDİ ÇALIYOR</p>
-                <p className="text-lg font-bold leading-tight" style={{ color: 'var(--station-color-primary)' }}>{currentSong.title}</p>
+                <p className="text-muted-foreground font-semibold mb-1 text-xs">ŞİMDİ ÇALIYOR</p>
+                <p className="text-lg font-bold leading-tight text-primary">{currentSong.title}</p>
                 <p className="text-md text-secondary-foreground">{currentSong.artist}</p>
               </div>
             ) : (
