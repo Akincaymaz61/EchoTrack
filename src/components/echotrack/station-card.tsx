@@ -45,11 +45,24 @@ export function StationCard({ station }: StationCardProps) {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
+  const isInitialLoad = useRef(true);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const Icon = ICONS[station.icon] || Music;
   const isPlaying = currentlyPlayingStationId === station.id;
+  
+  const loggedId = useMemo(() => {
+     if (!currentSong) return null;
+     const loggedVersion = loggedSongs.find(s => s.title === currentSong.title && s.artist === currentSong.artist && s.stationName === station.name);
+     return loggedVersion?.id;
+  },[currentSong, loggedSongs, station.name]);
+
+  const isCurrentSongFavorite = useMemo(() => {
+    if (!loggedId) return false;
+    const loggedVersion = loggedSongs.find(s => s.id === loggedId);
+    return loggedVersion ? loggedVersion.isFavorite : false;
+  }, [loggedId, loggedSongs]);
 
   useEffect(() => {
     if (station.url) {
@@ -106,73 +119,71 @@ export function StationCard({ station }: StationCardProps) {
       setCurrentlyPlayingStationId(station.id);
     }
   };
-
-
-  const isCurrentSongFavorite = useMemo(() => {
-    if (!currentSong) return false;
-    const loggedVersion = loggedSongs.find(s => s.title === currentSong.title && s.artist === currentSong.artist && s.stationName === station.name);
-    return loggedVersion ? loggedVersion.isFavorite : false;
-  }, [currentSong, loggedSongs, station.name]);
   
-  const loggedId = useMemo(() => {
-     if (!currentSong) return null;
-     const loggedVersion = loggedSongs.find(s => s.title === currentSong.title && s.artist === currentSong.artist && s.stationName === station.name);
-     return loggedVersion?.id;
-  },[currentSong, loggedSongs, station.name]);
+  useEffect(() => {
+    if(!isInitialLoad.current || !currentSong) return;
+
+    const lastLoggedSong = loggedSongs[0];
+    if (lastLoggedSong?.title !== currentSong.title || lastLoggedSong?.artist !== currentSong.artist) {
+       logSong({
+         artist: currentSong.artist,
+         title: currentSong.title,
+         stationName: station.name,
+       });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSong, station.name, logSong]);
 
 
   useEffect(() => {
     const updateNowPlaying = async () => {
-        if (!station.url) {
-            setError("No stream URL for this station.");
-            setIsLoading(false);
-            return;
-        }
+      if (!station.url) {
+        setError("No stream URL for this station.");
+        setIsLoading(false);
+        return;
+      }
 
-        try {
-            const result = await fetchNowPlaying(station.url);
-            
-            if (result.error) {
-                setError(result.error);
-                setCurrentSong(null);
-            } else if (result.song) {
-                setError(null);
-                
-                setCurrentSong(prevSong => {
-                    const isNewSong = result.song.title !== prevSong?.title || result.song.artist !== prevSong?.artist;
-                    if (isNewSong) {
-                        logSong({
-                            artist: result.song.artist,
-                            title: result.song.title,
-                            stationName: station.name,
-                        });
-                        
-                        return {
-                            id: `song-${Date.now()}`,
-                            artist: result.song.artist,
-                            title: result.song.title,
-                        };
-                    }
-                    return prevSong;
-                });
-            }
-        } catch (e: any) {
-            setError("Failed to fetch now playing data.");
-            setCurrentSong(null);
-        } finally {
-            setIsLoading(false);
+      if (isInitialLoad.current) {
+        setIsLoading(true);
+      }
+
+      try {
+        const result = await fetchNowPlaying(station.url);
+
+        if (result.error) {
+          setError(result.error);
+          setCurrentSong(null);
+        } else if (result.song) {
+          setError(null);
+          setCurrentSong(prevSong => {
+              const isNewSong = result.song.title !== prevSong?.title || result.song.artist !== prevSong?.artist;
+              if (isNewSong) {
+                return {
+                    id: `song-${Date.now()}`,
+                    artist: result.song.artist,
+                    title: result.song.title,
+                };
+              }
+              return prevSong;
+          });
         }
+      } catch (e: any) {
+        setError("Failed to fetch now playing data.");
+        setCurrentSong(null);
+      } finally {
+        if (isInitialLoad.current) {
+            setIsLoading(false);
+            isInitialLoad.current = false;
+        }
+      }
     };
-    
-    setIsLoading(true);
+
     updateNowPlaying();
-    
-    const interval = setInterval(updateNowPlaying, 15000); 
+    const interval = setInterval(updateNowPlaying, 15000);
 
     return () => clearInterval(interval);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [station.url, station.name, logSong]);
-
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [station.url]);
 
 
   const handleFavoriteClick = () => {
