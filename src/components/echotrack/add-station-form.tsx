@@ -4,88 +4,136 @@ import React, { useState } from 'react';
 import { useAppContext } from '@/context/app-context';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, Palette } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { iconNames, ICONS } from '@/lib/data';
-import { CATEGORIES } from '@/lib/categories';
 
-const categoryNames = Object.keys(CATEGORIES) as (keyof typeof CATEGORIES)[];
-
-export function AddStationForm() {
-  const { addStation } = useAppContext();
+export function AddStationForm({ setIsOpen }: { setIsOpen: (isOpen: boolean) => void }) {
+  const { addStation, categories, addCategory } = useAppContext();
   const [name, setName] = useState('');
   const [genre, setGenre] = useState('');
   const [url, setUrl] = useState('');
   const [icon, setIcon] = useState<keyof typeof ICONS>('Radio');
-  const [category, setCategory] = useState<keyof typeof CATEGORIES>(categoryNames[0]);
+  
+  const categoryNames = Object.keys(categories);
+  const [category, setCategory] = useState<string>(categoryNames[0] || '');
+
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryColor, setNewCategoryColor] = useState('#888888');
+
   const { toast } = useToast();
+
+  const handleAddCategory = () => {
+    if (newCategoryName && !categories[newCategoryName]) {
+      addCategory(newCategoryName, newCategoryColor);
+      setCategory(newCategoryName);
+      setNewCategoryName('');
+      setNewCategoryColor('#888888');
+      setIsAddingCategory(false);
+      toast({
+        title: "Kategori Eklendi!",
+        description: `"${newCategoryName}" kategorisi oluşturuldu.`,
+      });
+    } else {
+       toast({
+        variant: "destructive",
+        title: "Kategori Hatası",
+        description: "Kategori adı boş olamaz veya zaten mevcut olamaz.",
+      });
+    }
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !genre || !category) {
       toast({
         variant: "destructive",
-        title: "Validation Error",
-        description: "Station Name, Genre, and Category are required.",
+        title: "Doğrulama Hatası",
+        description: "İstasyon Adı, Tür ve Kategori gereklidir.",
       });
       return;
     }
 
     addStation({ name, genre, category, url, icon });
     toast({
-      title: "Station Added!",
-      description: `${name} has been added to your list.`,
+      title: "İstasyon Eklendi!",
+      description: `${name} listeye eklendi.`,
     });
 
-    // Reset form
-    setName('');
-    setGenre('');
-    setUrl('');
-    setIcon('Radio');
-    setCategory(categoryNames[0]);
+    setIsOpen(false);
   };
 
   return (
     <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 items-end">
       <div className="space-y-2">
-          <label htmlFor="station-name" className="text-sm font-medium">Station Name</label>
+          <label htmlFor="station-name" className="text-sm font-medium">İstasyon Adı</label>
           <Input
             id="station-name"
-            placeholder="e.g., Deep Space One"
+            placeholder="örn., Deep Space One"
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
       </div>
       <div className="space-y-2">
-        <label htmlFor="station-genre" className="text-sm font-medium">Genre</label>
+        <label htmlFor="station-genre" className="text-sm font-medium">Tür</label>
         <Input
           id="station-genre"
-          placeholder="e.g., 80s Retro, Lofi Hip-Hop"
+          placeholder="örn., 80s Retro, Lofi Hip-Hop"
           value={genre}
           onChange={(e) => setGenre(e.target.value)}
         />
       </div>
       <div className="space-y-2">
-        <label htmlFor="station-category" className="text-sm font-medium">Category</label>
-        <Select value={category} onValueChange={(value) => setCategory(value as keyof typeof CATEGORIES)}>
-            <SelectTrigger id="station-category">
-                <SelectValue placeholder="Select a category" />
-            </SelectTrigger>
-            <SelectContent>
-                {categoryNames.map(cat => (
-                    <SelectItem key={cat} value={cat}>
-                        <div className="flex items-center gap-2">
-                           <div className="w-3 h-3 rounded-full" style={{ backgroundColor: CATEGORIES[cat] }} />
-                           <span>{cat}</span>
-                        </div>
-                    </SelectItem>
-                ))}
-            </SelectContent>
-        </Select>
+        <label htmlFor="station-category" className="text-sm font-medium">Kategori</label>
+        <div className="flex gap-2">
+            <Select value={category} onValueChange={(value) => setCategory(value)}>
+                <SelectTrigger id="station-category" className="flex-grow">
+                    <SelectValue placeholder="Bir kategori seçin" />
+                </SelectTrigger>
+                <SelectContent>
+                    {categoryNames.map(cat => (
+                        <SelectItem key={cat} value={cat}>
+                            <div className="flex items-center gap-2">
+                               <div className="w-3 h-3 rounded-full" style={{ backgroundColor: categories[cat] }} />
+                               <span>{cat}</span>
+                            </div>
+                        </SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+            <Button type="button" variant="outline" size="icon" onClick={() => setIsAddingCategory(!isAddingCategory)}>
+                <Palette className="w-4 h-4" />
+            </Button>
+        </div>
       </div>
+
+      {isAddingCategory && (
+        <div className="p-4 border rounded-lg space-y-3 bg-muted/50">
+            <h4 className="font-medium text-sm">Yeni Kategori Ekle</h4>
+            <div className="flex items-center gap-2">
+                 <Input 
+                    placeholder="Yeni Kategori Adı" 
+                    value={newCategoryName} 
+                    onChange={e => setNewCategoryName(e.target.value)}
+                 />
+                 <div className="relative h-10 w-10">
+                    <input 
+                        type="color" 
+                        value={newCategoryColor} 
+                        onChange={e => setNewCategoryColor(e.target.value)}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
+                    <div className="w-10 h-10 rounded-md border" style={{ backgroundColor: newCategoryColor }} />
+                 </div>
+            </div>
+            <Button type="button" size="sm" className="w-full" onClick={handleAddCategory}>Yeni Kategoriyi Ekle</Button>
+        </div>
+      )}
+
       <div className="space-y-2">
-        <label htmlFor="station-url" className="text-sm font-medium">Stream URL (Optional)</label>
+        <label htmlFor="station-url" className="text-sm font-medium">Yayın URL'si (İsteğe Bağlı)</label>
         <Input
           id="station-url"
           placeholder="https://example.com/stream"
@@ -94,10 +142,10 @@ export function AddStationForm() {
         />
       </div>
       <div className="space-y-2">
-          <label htmlFor="station-icon" className="text-sm font-medium">Icon</label>
+          <label htmlFor="station-icon" className="text-sm font-medium">İkon</label>
           <Select value={icon} onValueChange={(value) => setIcon(value as keyof typeof ICONS)}>
             <SelectTrigger id="station-icon">
-                <SelectValue placeholder="Select an icon" />
+                <SelectValue placeholder="Bir ikon seçin" />
             </SelectTrigger>
             <SelectContent>
                 {iconNames.map(iconName => {
@@ -116,7 +164,7 @@ export function AddStationForm() {
       </div>
       <Button type="submit" className="w-full">
         <PlusCircle className="mr-2 h-4 w-4" />
-        Add Station
+        İstasyon Ekle
       </Button>
     </form>
   );

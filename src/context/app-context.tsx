@@ -1,10 +1,10 @@
-
 'use client';
 
 import type { Song, Station } from '@/lib/types';
 import { exportSongsToTxt } from '@/lib/utils';
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { STATIONS as initialStations } from '@/lib/data';
+import { CATEGORIES as initialCategories } from '@/lib/categories';
 
 interface AppContextType {
   stations: Station[];
@@ -20,6 +20,10 @@ interface AppContextType {
   clearHistory: () => void;
   currentlyPlayingStationId: string | null;
   setCurrentlyPlayingStationId: (stationId: string | null) => void;
+  categories: Record<string, string>;
+  addCategory: (name: string, color: string) => void;
+  refreshSignal: number;
+  refreshAllStations: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -62,7 +66,9 @@ function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((val
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [stations, setStations] = useLocalStorage<Station[]>('stations', initialStations);
   const [loggedSongs, setLoggedSongs] = useLocalStorage<Song[]>('loggedSongs', []);
+  const [categories, setCategories] = useLocalStorage<Record<string, string>>('categories', initialCategories);
   const [currentlyPlayingStationId, setCurrentlyPlayingStationId] = useState<string | null>(null);
+  const [refreshSignal, setRefreshSignal] = useState(0);
 
   const addStation = useCallback((stationData: Omit<Station, 'id'>) => {
     const newStation: Station = {
@@ -112,6 +118,17 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       )
     );
   }, [setLoggedSongs]);
+  
+  const addCategory = useCallback((name: string, color: string) => {
+    setCategories(prevCategories => ({
+      ...prevCategories,
+      [name]: color
+    }));
+  }, [setCategories]);
+
+  const refreshAllStations = useCallback(() => {
+    setRefreshSignal(prev => prev + 1);
+  }, []);
 
   const exportAllSongs = useCallback(() => {
     exportSongsToTxt(loggedSongs, false);
@@ -144,7 +161,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     exportStationSongs,
     clearHistory,
     currentlyPlayingStationId,
-    setCurrentlyPlayingStationId
+    setCurrentlyPlayingStationId,
+    categories,
+    addCategory,
+    refreshSignal,
+    refreshAllStations
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

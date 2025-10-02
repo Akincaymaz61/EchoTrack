@@ -23,17 +23,17 @@ export function AddStationDialog({ isOpen, setIsOpen }: AddStationDialogProps) {
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
         <Button>
-            <PlusCircle className="mr-2 h-4 w-4" /> Add Station
+            <PlusCircle className="mr-2 h-4 w-4" /> İstasyon Ekle
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-            <DialogTitle className="font-headline text-2xl">Add a Station</DialogTitle>
+            <DialogTitle className="font-headline text-2xl">Bir İstasyon Ekle</DialogTitle>
             <DialogDescription>
-                Enter the details of a web radio station stream.
+                Bir web radyo istasyonu akışının ayrıntılarını girin.
             </DialogDescription>
         </DialogHeader>
-        <AddStationForm />
+        <AddStationForm setIsOpen={setIsOpen} />
       </DialogContent>
     </Dialog>
   );
