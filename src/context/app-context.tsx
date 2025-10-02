@@ -22,6 +22,7 @@ interface AppContextType {
   setCurrentlyPlayingStationId: (stationId: string | null) => void;
   categories: Record<string, string>;
   addCategory: (name: string, color: string) => void;
+  removeCategory: (name: string) => void;
   refreshSignal: number;
   refreshAllStations: () => void;
 }
@@ -126,6 +127,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }));
   }, [setCategories]);
 
+  const removeCategory = useCallback((name: string) => {
+    setCategories(prevCategories => {
+        const newCategories = { ...prevCategories };
+        delete newCategories[name];
+        return newCategories;
+    });
+  }, [setCategories]);
+
   const refreshAllStations = useCallback(() => {
     setRefreshSignal(prev => prev + 1);
   }, []);
@@ -164,6 +173,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setCurrentlyPlayingStationId,
     categories,
     addCategory,
+    removeCategory,
     refreshSignal,
     refreshAllStations
   };

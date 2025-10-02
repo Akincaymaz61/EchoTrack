@@ -6,6 +6,7 @@ import { Header } from '@/components/echotrack/header';
 import { StationCard } from '@/components/echotrack/station-card';
 import { SongHistoryDialog } from '@/components/echotrack/song-history';
 import { AddStationDialog } from '@/components/echotrack/add-station-dialog';
+import { ManageCategoriesDialog } from '@/components/echotrack/manage-categories-dialog';
 import { Radio, Plus, ListFilter, X, History, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
@@ -14,6 +15,7 @@ function MainUI() {
   const { stations, categories, refreshAllStations } = useAppContext();
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isAddStationOpen, setIsAddStationOpen] = useState(false);
+  const [isManageCategoriesOpen, setIsManageCategoriesOpen] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   
   const categoryNames = Object.keys(categories);
@@ -68,6 +70,8 @@ function MainUI() {
           </DropdownMenu>
           
           <SongHistoryDialog isOpen={isHistoryOpen} setIsOpen={setIsHistoryOpen} />
+
+          <ManageCategoriesDialog isOpen={isManageCategoriesOpen} setIsOpen={setIsManageCategoriesOpen} />
 
           <Button variant="outline" onClick={handleRefreshAll} disabled={stations.length === 0}>
             <RefreshCw className="mr-2 h-4 w-4" /> Tümünü Yenile

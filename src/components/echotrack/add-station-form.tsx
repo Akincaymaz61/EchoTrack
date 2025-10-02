@@ -4,13 +4,13 @@ import React, { useState } from 'react';
 import { useAppContext } from '@/context/app-context';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Palette } from 'lucide-react';
+import { PlusCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { iconNames, ICONS } from '@/lib/data';
 
 export function AddStationForm({ setIsOpen }: { setIsOpen: (isOpen: boolean) => void }) {
-  const { addStation, categories, addCategory } = useAppContext();
+  const { addStation, categories } = useAppContext();
   const [name, setName] = useState('');
   const [genre, setGenre] = useState('');
   const [url, setUrl] = useState('');
@@ -19,31 +19,9 @@ export function AddStationForm({ setIsOpen }: { setIsOpen: (isOpen: boolean) => 
   const categoryNames = Object.keys(categories);
   const [category, setCategory] = useState<string>(categoryNames[0] || '');
 
-  const [isAddingCategory, setIsAddingCategory] = useState(false);
-  const [newCategoryName, setNewCategoryName] = useState('');
-  const [newCategoryColor, setNewCategoryColor] = useState('#888888');
 
   const { toast } = useToast();
 
-  const handleAddCategory = () => {
-    if (newCategoryName && !categories[newCategoryName]) {
-      addCategory(newCategoryName, newCategoryColor);
-      setCategory(newCategoryName);
-      setNewCategoryName('');
-      setNewCategoryColor('#888888');
-      setIsAddingCategory(false);
-      toast({
-        title: "Kategori Eklendi!",
-        description: `"${newCategoryName}" kategorisi oluşturuldu.`,
-      });
-    } else {
-       toast({
-        variant: "destructive",
-        title: "Kategori Hatası",
-        description: "Kategori adı boş olamaz veya zaten mevcut olamaz.",
-      });
-    }
-  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -103,34 +81,8 @@ export function AddStationForm({ setIsOpen }: { setIsOpen: (isOpen: boolean) => 
                     ))}
                 </SelectContent>
             </Select>
-            <Button type="button" variant="outline" size="icon" onClick={() => setIsAddingCategory(!isAddingCategory)}>
-                <Palette className="w-4 h-4" />
-            </Button>
         </div>
       </div>
-
-      {isAddingCategory && (
-        <div className="p-4 border rounded-lg space-y-3 bg-muted/50">
-            <h4 className="font-medium text-sm">Yeni Kategori Ekle</h4>
-            <div className="flex items-center gap-2">
-                 <Input 
-                    placeholder="Yeni Kategori Adı" 
-                    value={newCategoryName} 
-                    onChange={e => setNewCategoryName(e.target.value)}
-                 />
-                 <div className="relative h-10 w-10">
-                    <input 
-                        type="color" 
-                        value={newCategoryColor} 
-                        onChange={e => setNewCategoryColor(e.target.value)}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    />
-                    <div className="w-10 h-10 rounded-md border" style={{ backgroundColor: newCategoryColor }} />
-                 </div>
-            </div>
-            <Button type="button" size="sm" className="w-full" onClick={handleAddCategory}>Yeni Kategoriyi Ekle</Button>
-        </div>
-      )}
 
       <div className="space-y-2">
         <label htmlFor="station-url" className="text-sm font-medium">Yayın URL'si (İsteğe Bağlı)</label>
