@@ -22,11 +22,10 @@ export const SoundWave: React.FC<SoundWaveProps> = ({ analyser, barCount = 32 })
         const bufferLength = analyser.frequencyBinCount;
         const dataArray = new Uint8Array(bufferLength);
         
-        const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim();
-        
         const render = () => {
             animationFrameId = requestAnimationFrame(render);
-
+            
+            const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim();
             analyser.getByteFrequencyData(dataArray);
 
             const { width, height } = canvas;
@@ -53,7 +52,7 @@ export const SoundWave: React.FC<SoundWaveProps> = ({ analyser, barCount = 32 })
         return () => {
             cancelAnimationFrame(animationFrameId);
         };
-    }, [analyser, barCount, primaryColor]);
+    }, [analyser, barCount]);
 
     return (
         <div className="absolute bottom-0 left-0 w-full h-16 overflow-hidden pointer-events-none">
