@@ -1,7 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
-import { useFormState } from 'react-dom';
+import React, { useState, useActionState } from 'react';
 import { getStationSuggestions } from '@/app/actions';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -14,7 +13,7 @@ const initialState = {
 };
 
 export function StationSuggestions() {
-  const [state, formAction] = useFormState(getStationSuggestions, initialState);
+  const [state, formAction] = useActionState(getStationSuggestions, initialState);
   const [prompt, setPrompt] = useState('');
   
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
