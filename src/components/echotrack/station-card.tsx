@@ -4,7 +4,7 @@
 import type { Song, Station } from '@/lib/types';
 import { ICONS } from '@/lib/data';
 import { useAppContext } from '@/context/app-context';
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Star, Music, Loader2, X, PowerOff, Play, Pause, Pencil, Clock } from 'lucide-react';
@@ -202,7 +202,7 @@ export function StationCard({ station }: StationCardProps) {
         }
       } finally {
         if (isMounted) {
-          setIsLoading(false);
+            setIsLoading(false);
         }
       }
     };
@@ -333,8 +333,8 @@ export function StationCard({ station }: StationCardProps) {
           ) : currentSong ? (
             <div className="w-full">
               <p className="text-xs text-primary font-semibold mb-1">NOW PLAYING</p>
-              <p className="text-lg font-bold text-primary-foreground leading-tight">{currentSong.title}</p>
-              <p className="text-md text-muted-foreground">{currentSong.artist}</p>
+              <p className="text-lg font-bold text-foreground leading-tight">{currentSong.title}</p>
+              <p className="text-md text-secondary-foreground">{currentSong.artist}</p>
             </div>
           ) : (
              <div className="flex flex-col items-center gap-2 text-muted-foreground">
