@@ -43,38 +43,30 @@ body {
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
   .dark {
-    --background: 180 25% 25%; /* Dark Slate Gray */
-    --foreground: 0 0% 98%;
-    --card: 180 25% 27%;
-    --card-foreground: 0 0% 98%;
-    --popover: 180 25% 25%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 183 100% 74%; /* Electric Blue */
-    --primary-foreground: 183 50% 15%; /* Darker blue for contrast */
-    --secondary: 180 15% 40%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 180 15% 40%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 180 100% 50%; /* Cyan */
-    --accent-foreground: 180 50% 15%; /* Dark blue for contrast on cyan */
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 180 15% 40%;
-    --input: 180 15% 40%;
-    --ring: 183 100% 74%; /* Electric Blue */
+    --background: 222 84% 5%; /* Deep Space Blue */
+    --foreground: 210 40% 98%;
+    --card: 217 33% 17%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217 91% 60%; /* Vibrant Blue */
+    --primary-foreground: 222 47% 11%;
+    --secondary: 217 33% 25%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217 33% 25%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 217 91% 60%; /* Vibrant Blue for accents */
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217 33% 25%;
+    --input: 217 33% 25%;
+    --ring: 217 91% 60%;
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
   }
 }
 
@@ -84,5 +76,29 @@ body {
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  .animated-gradient {
+    animation: gradient-animation 15s ease infinite;
+    background: linear-gradient(-45deg, hsl(222, 84%, 5%), hsl(260, 50%, 10%), hsl(222, 84%, 5%), hsl(180, 50%, 10%));
+    background-size: 400% 400%;
+  }
+
+  @keyframes gradient-animation {
+    0% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+    100% {
+      background-position: 0% 50%;
+    }
+  }
+
+  .sound-wave > div {
+    animation-duration: 0.8s;
   }
 }

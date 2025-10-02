@@ -22,7 +22,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   AlertDialogTrigger,
-} from "@/components/ui/alert-dialog"
+} from "@/components/ui/alert-dialog";
+import { SoundWave } from '@/components/echotrack/sound-wave';
 
 type StationCardProps = {
   station: Station;
@@ -49,6 +50,8 @@ export function StationCard({ station }: StationCardProps) {
   const { toast } = useToast();
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
 
   const Icon = ICONS[station.icon] || Music;
   const isPlaying = currentlyPlayingStationId === station.id;
@@ -67,14 +70,31 @@ export function StationCard({ station }: StationCardProps) {
 
   useEffect(() => {
     if (station.url) {
-      audioRef.current = new Audio(station.url);
-      audioRef.current.preload = 'none';
+        audioRef.current = new Audio(station.url);
+        audioRef.current.crossOrigin = "anonymous";
+        audioRef.current.preload = 'none';
+
+        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        analyserRef.current = audioContext.createAnalyser();
+        analyserRef.current.fftSize = 256;
+
+        if (audioRef.current) {
+            sourceRef.current = audioContext.createMediaElementSource(audioRef.current);
+            sourceRef.current.connect(analyserRef.current);
+            analyserRef.current.connect(audioContext.destination);
+        }
     }
     return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
+        if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current = null;
+        }
+        if (sourceRef.current) {
+            sourceRef.current.disconnect();
+        }
+        if (analyserRef.current) {
+            analyserRef.current.disconnect();
+        }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [station.url]);
@@ -87,10 +107,11 @@ export function StationCard({ station }: StationCardProps) {
                 await audioRef.current.play();
             } catch (e: any) {
                 if (e.name !== 'AbortError') {
+                    console.error("Playback Error:", e);
                     toast({
                         variant: "destructive",
                         title: "Playback Error",
-                        description: "Could not play this station's stream. The URL may be invalid or unsupported.",
+                        description: "Could not play stream. The URL may be invalid or the station might be offline.",
                     });
                     setCurrentlyPlayingStationId(null);
                 }
@@ -127,85 +148,76 @@ export function StationCard({ station }: StationCardProps) {
 
     const updateNowPlaying = async (isInitialLoad = false) => {
       if (!station.url) {
-        if(isMounted) {
+        if (isMounted) {
           setError("No stream URL for this station.");
-          setIsLoading(false);
         }
         return;
       }
-      
+
       if (isInitialLoad && isMounted) {
         setIsLoading(true);
       }
-      
+
       try {
         const result = await fetchNowPlaying(station.url);
         if (!isMounted) return;
 
         if (result.error) {
-           if (retryCount < MAX_RETRIES) {
-             setRetryCount(prev => prev + 1);
-           } else {
-             setError(result.error);
-             setCurrentSong(null);
-           }
+          if (retryCount < MAX_RETRIES) {
+            setRetryCount(prev => prev + 1);
+          } else {
+            setError(result.error);
+            setCurrentSong(null);
+          }
         } else if (result.song) {
           setError(null);
           setRetryCount(0); // Reset on success
           setCurrentSong(prevSong => {
-              if (result.song.title !== prevSong?.title || result.song.artist !== prevSong?.artist) {
-                return {
-                    id: `song-${Date.now()}`,
-                    artist: result.song.artist,
-                    title: result.song.title,
-                };
-              }
-              return prevSong;
+            if (result.song.title !== prevSong?.title || result.song.artist !== prevSong?.artist) {
+              return {
+                id: `song-${Date.now()}`,
+                artist: result.song.artist,
+                title: result.song.title,
+              };
+            }
+            return prevSong;
           });
         }
       } catch (e: any) {
         if (isMounted) {
-           if (retryCount < MAX_RETRIES) {
-             setRetryCount(prev => prev + 1);
-           } else {
+          if (retryCount < MAX_RETRIES) {
+            setRetryCount(prev => prev + 1);
+          } else {
             setError("Failed to fetch now playing data.");
             setCurrentSong(null);
-           }
+          }
         }
       } finally {
-        if(isMounted) {
-            setIsLoading(false);
+        if (isMounted && isInitialLoad) {
+          setIsLoading(false);
         }
       }
     };
-    
-    // Initial call
+
     updateNowPlaying(true);
-    
-    // Set up interval for subsequent fetches
-    interval = setInterval(() => {
-       setRetryCount(0); // Reset retries for periodic check
-       updateNowPlaying(false)
-    }, 15000);
+    interval = setInterval(() => updateNowPlaying(false), 15000);
 
     return () => {
       isMounted = false;
       if (interval) clearInterval(interval);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [station.url, retryCount]); // Retry when retryCount changes
-  
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [station.url, retryCount]);
+
   useEffect(() => {
-     if (!currentSong || !loggedSongs.some(s => s.title === currentSong.title && s.artist === currentSong.artist && s.stationName === station.name)) {
-        if(currentSong) {
-            logSong({
-                artist: currentSong.artist,
-                title: currentSong.title,
-                stationName: station.name,
-            });
-        }
-     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (currentSong) {
+      logSong({
+        artist: currentSong.artist,
+        title: currentSong.title,
+        stationName: station.name,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSong]);
 
 
@@ -277,15 +289,15 @@ export function StationCard({ station }: StationCardProps) {
 
   return (
     <>
-      <Card className="flex flex-col justify-between transition-all duration-300 hover:shadow-primary/20 hover:shadow-lg border-transparent bg-card/50 backdrop-blur-sm relative group">
-        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setIsEditDialogOpen(true)}>
+      <Card className="flex flex-col justify-between transition-all duration-300 hover:shadow-primary/20 hover:shadow-lg border-border bg-card/60 backdrop-blur-sm relative group overflow-hidden">
+        <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+            <Button variant="ghost" size="icon" className="h-7 w-7 bg-black/20 hover:bg-black/40" onClick={() => setIsEditDialogOpen(true)}>
                 <Pencil className="w-4 h-4"/>
                 <span className="sr-only">Edit station</span>
             </Button>
             <AlertDialog>
                 <AlertDialogTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-7 w-7">
+                    <Button variant="ghost" size="icon" className="h-7 w-7 bg-black/20 hover:bg-black/40">
                         <X className="w-4 h-4"/>
                         <span className="sr-only">Remove station</span>
                     </Button>
@@ -307,28 +319,26 @@ export function StationCard({ station }: StationCardProps) {
         <CardHeader>
           <div className="flex items-start justify-between gap-4">
             <div>
-              <CardTitle className="font-headline text-xl flex items-center gap-2 pr-16">
-                <Icon className="w-6 h-6 text-primary" />
-                {station.name}
+              <CardTitle className="font-headline text-xl flex items-center gap-3 pr-16">
+                <Icon className="w-6 h-6 text-primary flex-shrink-0" />
+                <span className="truncate">{station.name}</span>
               </CardTitle>
               <CardDescription>{station.genre}</CardDescription>
             </div>
           </div>
         </CardHeader>
-        <CardContent className="flex-grow flex flex-col justify-center items-center text-center min-h-[100px] animate-in fade-in duration-500">
+        <CardContent className="flex-grow flex flex-col justify-center items-center text-center min-h-[120px] p-4">
           {isLoading ? (
-            <div className="space-y-2 w-full">
-                <div className="flex justify-center items-center gap-2 text-muted-foreground">
-                    <Loader2 className="w-5 h-5 animate-spin"/>
-                    <span>Tuning in...</span>
-                </div>
+            <div className="flex justify-center items-center gap-2 text-muted-foreground">
+                <Loader2 className="w-5 h-5 animate-spin"/>
+                <span>Tuning in...</span>
             </div>
           ) : currentSong ? (
-            <>
-              <Music className="w-8 h-8 text-muted-foreground mb-4" />
-              <p className="text-lg font-bold text-primary-foreground">{currentSong.title}</p>
-              <p className="text-md text-muted-foreground">{currentSong.artist}</p>
-            </>
+            <div className="w-full">
+              <p className="text-xs text-primary font-semibold mb-1">NOW PLAYING</p>
+              <p className="text-lg font-bold text-primary-foreground leading-tight truncate">{currentSong.title}</p>
+              <p className="text-md text-muted-foreground truncate">{currentSong.artist}</p>
+            </div>
           ) : (
              <div className="flex flex-col items-center gap-2 text-muted-foreground">
                 <PowerOff className="w-8 h-8"/>
@@ -337,20 +347,25 @@ export function StationCard({ station }: StationCardProps) {
              </div>
           )}
         </CardContent>
-        <CardFooter className="flex justify-between items-center gap-2">
+
+        <div className="h-16 relative">
+            {isPlaying && analyserRef.current && <SoundWave analyser={analyserRef.current} />}
+        </div>
+        
+        <CardFooter className="flex justify-between items-center gap-2 bg-black/20 z-10 p-3">
            <Button variant="ghost" size="icon" onClick={handleFavoriteClick} disabled={!currentSong || isLoading}>
             <Star className={cn("w-5 h-5 transition-colors", isCurrentSongFavorite ? 'fill-amber-400 text-amber-400' : 'text-primary/70')} />
             <span className="sr-only">Favorite</span>
           </Button>
           
-           <Button variant="outline" size="icon" onClick={handlePlayPauseToggle}>
-            {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+           <Button variant="outline" size="icon" onClick={handlePlayPauseToggle} className="w-12 h-12 rounded-full border-2">
+            {isPlaying ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6 fill-current" />}
             <span className="sr-only">{isPlaying ? 'Pause' : 'Play'}</span>
           </Button>
 
-          <Button variant="outline" size="sm" onClick={handleAnalyzeTrends} disabled={isAnalyzing}>
-            {isAnalyzing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BrainCircuit className="mr-2 h-4 w-4" />}
-            Analyze
+          <Button variant="ghost" size="icon" onClick={handleAnalyzeTrends} disabled={isAnalyzing}>
+            {isAnalyzing ? <Loader2 className="w-5 h-5 animate-spin" /> : <BrainCircuit className="w-5 h-5 text-primary/70" />}
+            <span className="sr-only">Analyze</span>
           </Button>
         </CardFooter>
       </Card>

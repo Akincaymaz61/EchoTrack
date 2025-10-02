@@ -4,7 +4,6 @@ import React, { useState, useMemo } from 'react';
 import { useAppContext } from '@/context/app-context';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Search, Star, Download, Music, History, Trash2, ChevronDown } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
@@ -31,10 +30,17 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
 
-
-export function SongHistory() {
-  const { loggedSongs, toggleFavorite, exportAllSongs, exportFavoriteSongs, exportStationSongs, clearHistory, stations } = useAppContext();
+export function SongHistoryDialog({ isOpen, setIsOpen }: { isOpen: boolean, setIsOpen: (open: boolean) => void }) {
+  const { loggedSongs, toggleFavorite, exportAllSongs, exportFavoriteSongs, exportStationSongs, clearHistory } = useAppContext();
   const [searchTerm, setSearchTerm] = useState('');
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const { toast } = useToast();
@@ -78,18 +84,24 @@ export function SongHistory() {
   }, [loggedSongs]);
 
   return (
-    <Card className="border-transparent bg-card/50 backdrop-blur-sm">
-       <CardHeader>
-        <CardTitle className="font-headline text-2xl flex items-center gap-3">
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline">
+          <History className="mr-2 h-4 w-4" /> View History
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-4xl h-[80vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="font-headline text-2xl flex items-center gap-3">
             <History className="w-7 h-7 text-primary" />
             Song History
-        </CardTitle>
-        <CardDescription>
-          Here you can see all the songs you've discovered. Search, filter, and export your history.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="p-6 pt-0">
-        <div className="flex flex-col md:flex-row gap-4 justify-between items-center mb-6">
+          </DialogTitle>
+          <DialogDescription>
+            Here you can see all the songs you've discovered. Search, filter, and export your history.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex flex-col md:flex-row gap-4 justify-between items-center py-4">
           <div className="relative w-full md:max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input
@@ -99,14 +111,14 @@ export function SongHistory() {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 flex-shrink-0">
              <div className="flex items-center space-x-2">
               <Switch 
                 id="favorites-only" 
                 checked={showFavoritesOnly}
                 onCheckedChange={setShowFavoritesOnly}
                 />
-              <Label htmlFor="favorites-only" className="text-primary-foreground">Favorites Only</Label>
+              <Label htmlFor="favorites-only">Favorites Only</Label>
             </div>
              <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -134,7 +146,7 @@ export function SongHistory() {
             <AlertDialog>
               <AlertDialogTrigger asChild>
                  <Button variant="destructive" disabled={loggedSongs.length === 0}>
-                  <Trash2 className="mr-2 h-4 w-4" /> Clear History
+                  <Trash2 className="mr-2 h-4 w-4" /> Clear
                 </Button>
               </AlertDialogTrigger>
               <AlertDialogContent>
@@ -150,13 +162,12 @@ export function SongHistory() {
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
-
           </div>
         </div>
-
-        <div className="rounded-lg border">
+        
+        <div className="flex-grow overflow-y-auto rounded-lg border">
           <Table>
-            <TableHeader>
+            <TableHeader className="sticky top-0 bg-background/95 backdrop-blur-sm z-10">
               <TableRow>
                 <TableHead className="w-12"></TableHead>
                 <TableHead>Song</TableHead>
@@ -194,11 +205,11 @@ export function SongHistory() {
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={4} className="h-24 text-center">
+                  <TableCell colSpan={4} className="h-48 text-center">
                     <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                        <Music className="w-8 h-8"/>
-                        <p className="font-bold">No Songs Logged</p>
-                        <p className="text-sm">Songs you hear on stations will appear here.</p>
+                        <Music className="w-10 h-10"/>
+                        <p className="font-semibold text-lg mt-2">No Songs Logged Yet</p>
+                        <p className="text-sm">Songs you discover on stations will appear here.</p>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -206,7 +217,7 @@ export function SongHistory() {
             </TableBody>
           </Table>
         </div>
-      </CardContent>
-    </Card>
+      </DialogContent>
+    </Dialog>
   );
 }

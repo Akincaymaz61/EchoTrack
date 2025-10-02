@@ -6,7 +6,7 @@ import { getStationSuggestions, StationSuggestionState } from '@/app/actions';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Sparkles, Loader2, Bot, PlusCircle, Globe } from 'lucide-react';
+import { Sparkles, Loader2, PlusCircle, Globe } from 'lucide-react';
 import { useAppContext } from '@/context/app-context';
 import { useToast } from '@/hooks/use-toast';
 import type { Station } from '@/lib/types';
@@ -31,28 +31,18 @@ export function StationSuggestions() {
   }
 
   return (
-    <Card className="mt-12 border-transparent bg-card/50 backdrop-blur-sm">
-      <CardHeader>
-        <CardTitle className="font-headline text-2xl flex items-center gap-3">
-            <Bot className="w-7 h-7 text-primary" />
-            Find New Stations
-        </CardTitle>
-        <CardDescription>
-          Describe a music genre, artist, or vibe, and our AI will suggest working radio stations for you.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form action={formAction} className="flex flex-col md:flex-row gap-2">
+    <>
+        <form action={formAction} className="flex flex-col sm:flex-row gap-2">
           <Input
             name="prompt"
-            placeholder="e.g., '80s synth-pop', 'lo-fi hip hop for studying'"
+            placeholder="e.g., '80s synth-pop', 'lo-fi hip hop'"
             className="flex-grow"
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             required
             disabled={isPending}
           />
-          <Button type="submit" disabled={!prompt || isPending}>
+          <Button type="submit" disabled={!prompt || isPending} className="sm:w-auto w-full">
              {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
             {isPending ? 'Suggesting...' : 'Suggest Stations'}
           </Button>
@@ -68,7 +58,7 @@ export function StationSuggestions() {
         {state.stations && state.stations.length > 0 && (
           <div className="mt-6">
             <h4 className="font-bold text-lg text-primary-foreground mb-3">AI Suggestions:</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {state.stations.map((station, index) => (
                 <Card key={index} className="bg-background/40">
                   <CardHeader>
@@ -99,7 +89,6 @@ export function StationSuggestions() {
         {state.message && !isPending && state.message !== 'success' && (
           <p className="mt-4 text-destructive">{state.message}</p>
         )}
-      </CardContent>
-    </Card>
+    </>
   );
 }
