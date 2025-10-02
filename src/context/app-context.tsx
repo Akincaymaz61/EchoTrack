@@ -85,11 +85,17 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const logSong = useCallback((songData: Omit<Song, 'id' | 'timestamp' | 'isFavorite'>): string | undefined => {
      let newSongId: string | undefined = undefined;
      setLoggedSongs(currentSongs => {
-        const lastSong = currentSongs[currentSongs.length - 1];
-        if (lastSong && lastSong.title === songData.title && lastSong.artist === songData.artist && lastSong.stationName === songData.stationName) {
+        // Check if the song (by title, artist, and station) already exists anywhere in the history.
+        const songExists = currentSongs.some(
+            song => song.title === songData.title && song.artist === songData.artist && song.stationName === songData.stationName
+        );
+
+        // If it already exists, do not add it again. Return the existing songs.
+        if (songExists) {
             return currentSongs;
         }
           
+        // If it doesn't exist, create the new song and add it.
         const newSong: Song = {
           ...songData,
           id: `song-${Date.now()}-${Math.random()}`,
