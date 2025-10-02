@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState } from 'react';
@@ -22,12 +23,6 @@ export function StationSuggestions() {
   const { addStation } = useAppContext();
   const { toast } = useToast();
   
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    formAction(formData);
-  };
-  
   const handleAddStation = (station: Omit<Station, 'id'>) => {
     addStation(station);
     toast({
@@ -48,7 +43,7 @@ export function StationSuggestions() {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="flex flex-col md:flex-row gap-2">
+        <form action={formAction} className="flex flex-col md:flex-row gap-2">
           <Input
             name="prompt"
             placeholder="e.g., '80s synth-pop', 'lo-fi hip hop for studying'"
