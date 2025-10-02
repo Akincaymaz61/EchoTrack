@@ -39,18 +39,19 @@ async function findStreamInPage(pageUrl: string): Promise<string | null> {
         protocol.get(pageUrl, { headers: { 'User-Agent': 'EchoTrack/1.0' } }, (res) => {
             let body = '';
             if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-                resolve(findStreamInPage(res.headers.location));
+                // If the location is a relative URL, resolve it against the original pageUrl
+                const newUrl = new URL(res.headers.location, pageUrl).href;
+                resolve(findStreamInPage(newUrl));
                 res.destroy();
                 return;
             }
             res.on('data', chunk => body += chunk);
             res.on('end', () => {
-                // Regex to find stream URLs in HTML content (e.g., in <audio src="..."> or links)
                 const streamRegex = /(https?:\/\/[^"'<>\s]+\/(?:;|\bice-?cast\b|\bshout-?cast\b|\blive\b|\bstream\b)[^"'<>\s]*)/gi;
                 const audioSrcRegex = /<audio[^>]+src=["'](https?:\/\/[^"']+)["']/gi;
-                const portRegex = /(https?:\/\/[^"'<>\s]+:\d{4,5}\/[^"'<>\s]*)/gi;
+                const portRegex = /(https?:\/\/[^"'<>\s]+:\d{4,5}(?:\/[^"'<>\s]*)?)/gi;
                 const mp3Regex = /(https?:\/\/[^"'<>\s]+\.mp3)/gi;
-                const aacRegex = /(httpshttps?:\/\/[^"'<>\s]+\.aac)/gi;
+                const aacRegex = /(https?:\/\/[^"'<>\s]+\.aac)/gi;
 
                 let match;
                 
@@ -96,7 +97,6 @@ async function fetchStreamMetadata(streamUrl: string, redirectCount = 0): Promis
         };
 
         const req = protocol.get(options, (res) => {
-            // Handle redirects
             if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
                 res.destroy();
                 const newUrl = new URL(res.headers.location, streamUrl).href;
@@ -111,7 +111,6 @@ async function fetchStreamMetadata(streamUrl: string, redirectCount = 0): Promis
             }
 
             if (!metaInt) {
-                // Check for SHOUTcast v1 style metadata on status page
                  const statusPath = url.pathname.endsWith('/') ? `${url.pathname}7.html` : `${url.pathname}/7.html`;
                  const statusOptions = { ...options, path: statusPath };
                  
@@ -202,7 +201,11 @@ const getStationNowPlayingFlow = ai.defineFlow(
   },
   async ({ url }) => {
     try {
-        let streamUrl: string | null = url;
+        const urlValidation = z.string().url().safeParse(url);
+        if (!urlValidation.success) {
+            return { error: 'Invalid URL format provided.' };
+        }
+        
         const metadataFromInitialUrl = await fetchStreamMetadata(url);
 
         if (!metadataFromInitialUrl.error && metadataFromInitialUrl.title) {
@@ -212,8 +215,7 @@ const getStationNowPlayingFlow = ai.defineFlow(
             };
         }
 
-        // If the initial URL didn't work, try to find a stream URL in the page
-        streamUrl = await findStreamInPage(url);
+        const streamUrl = await findStreamInPage(url);
         if (!streamUrl) {
             return { error: 'Could not find a valid audio stream on the provided page.' };
         }
