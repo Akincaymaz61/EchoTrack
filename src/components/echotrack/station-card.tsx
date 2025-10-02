@@ -4,10 +4,9 @@
 import type { Song, Station } from '@/lib/types';
 import { ICONS } from '@/lib/data';
 import { useAppContext } from '@/context/app-context';
-import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Star, Music, Loader2, BrainCircuit, X, PowerOff, Play, Pause, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -123,14 +122,12 @@ export function StationCard({ station }: StationCardProps) {
     const updateNowPlaying = async (isInitialLoad = false) => {
       if (!station.url) {
         setError("No stream URL for this station.");
-        setIsLoading(false);
+        if (isInitialLoad) setIsLoading(false);
         return;
       }
 
-      if (isInitialLoad) {
-        setIsLoading(true);
-      }
-
+      if (isInitialLoad) setIsLoading(true);
+      
       try {
         const result = await fetchNowPlaying(station.url);
         
@@ -154,9 +151,7 @@ export function StationCard({ station }: StationCardProps) {
         setError("Failed to fetch now playing data.");
         setCurrentSong(null);
       } finally {
-        if(isInitialLoad) {
-            setIsLoading(false);
-        }
+        if(isInitialLoad) setIsLoading(false);
       }
     };
 
@@ -164,20 +159,17 @@ export function StationCard({ station }: StationCardProps) {
     const interval = setInterval(() => updateNowPlaying(false), 15000);
 
     return () => clearInterval(interval);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [station.url]);
   
   useEffect(() => {
      if (!currentSong) return;
 
-     const lastLoggedSong = loggedSongs[0];
-     if (lastLoggedSong?.title !== currentSong.title || lastLoggedSong?.artist !== currentSong.artist) {
-       logSong({
-         artist: currentSong.artist,
-         title: currentSong.title,
-         stationName: station.name,
-       });
-    }
+     logSong({
+       artist: currentSong.artist,
+       title: currentSong.title,
+       stationName: station.name,
+     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSong, station.name]);
 
@@ -295,8 +287,6 @@ export function StationCard({ station }: StationCardProps) {
                     <Loader2 className="w-5 h-5 animate-spin"/>
                     <span>Tuning in...</span>
                 </div>
-              <Skeleton className="h-6 w-3/4 mx-auto mt-2" />
-              <Skeleton className="h-4 w-1/2 mx-auto" />
             </div>
           ) : currentSong ? (
             <>
