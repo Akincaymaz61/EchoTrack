@@ -7,7 +7,7 @@ import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Star, Music, Loader2, BrainCircuit, X, PowerOff } from 'lucide-react';
+import { Star, Music, Loader2, BrainCircuit, X, PowerOff, Play, Pause } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { getTrendSummary, fetchNowPlaying } from '@/app/actions';
@@ -39,11 +39,46 @@ export function StationCard({ station }: StationCardProps) {
   const [analysisResult, setAnalysisResult] = useState<string | null>(null);
   const [isAnalysisDialogOpen, setIsAnalysisDialogOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { toast } = useToast();
+  const [isPlaying, setIsPlaying] = useState(false);
 
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const intervalRef = useRef<NodeJS.Timeout>();
 
   const Icon = ICONS[station.icon] || Music;
+
+  useEffect(() => {
+    if (station.url) {
+      audioRef.current = new Audio(station.url);
+      audioRef.current.preload = 'none';
+    }
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, [station.url]);
+
+  const togglePlay = () => {
+    if (audioRef.current) {
+        if (isPlaying) {
+            audioRef.current.pause();
+            setIsPlaying(false);
+        } else {
+            try {
+                audioRef.current.play();
+                setIsPlaying(true);
+            } catch (e) {
+                console.error("Error playing audio:", e);
+                toast({
+                    variant: "destructive",
+                    title: "Playback Error",
+                    description: "Could not play this station's stream.",
+                });
+            }
+        }
+    }
+  };
 
   const isCurrentSongFavorite = useMemo(() => {
     if (!currentSong) return false;
@@ -64,9 +99,10 @@ export function StationCard({ station }: StationCardProps) {
       return;
     }
 
-    setIsLoading(true);
+    // Don't set loading to true for subsequent background fetches
+    // setIsLoading(true); 
     const result = await fetchNowPlaying(station.url);
-    setIsLoading(false);
+    if(isLoading) setIsLoading(false);
 
     if (result.error) {
       setError(result.error);
@@ -90,7 +126,7 @@ export function StationCard({ station }: StationCardProps) {
         });
       }
     }
-  }, [station.url, station.name, currentSong?.title, currentSong?.artist, logSong]);
+  }, [station.url, station.name, currentSong?.title, currentSong?.artist, logSong, isLoading]);
 
   useEffect(() => {
     updateNowPlaying(); // Fetch immediately on mount
@@ -124,8 +160,8 @@ export function StationCard({ station }: StationCardProps) {
         logSong(newSongEntry);
         // We need to find the just-added song to favorite it. This is a bit of a workaround.
         setTimeout(() => {
-            const latestSong = loggedSongs[0];
-            if(latestSong.title === currentSong.title) {
+            const latestSong = loggedSongs.find(s => s.title === currentSong.title && s.artist === currentSong.artist && s.stationName === station.name);
+            if(latestSong) {
                 toggleFavorite(latestSong.id);
             }
         }, 100);
@@ -149,7 +185,7 @@ export function StationCard({ station }: StationCardProps) {
     setIsAnalyzing(true);
     const stationHistory = loggedSongs
       .filter(s => s.stationName === station.name)
-      .map(s => ({ artist: s.artist, title: s.title, timestamp: s.timestamp.toISOString() }));
+      .map(s => ({ artist: s.artist, title: s.title, timestamp: s.timestamp.toString() }));
 
     if (stationHistory.length < 1) { 
       toast({
@@ -224,6 +260,12 @@ export function StationCard({ station }: StationCardProps) {
             <Star className={cn("w-5 h-5 transition-colors", isCurrentSongFavorite ? 'fill-amber-400 text-amber-400' : 'text-primary/70')} />
             <span className="sr-only">Favorite</span>
           </Button>
+          
+           <Button variant="outline" size="icon" onClick={togglePlay} disabled={!station.url}>
+            {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+            <span className="sr-only">{isPlaying ? 'Pause' : 'Play'}</span>
+          </Button>
+
           <Button variant="outline" size="sm" onClick={handleAnalyzeTrends} disabled={isAnalyzing}>
             {isAnalyzing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <BrainCircuit className="mr-2 h-4 w-4" />}
             Analyze

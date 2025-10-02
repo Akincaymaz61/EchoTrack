@@ -4,9 +4,9 @@ import React, { useState, useMemo } from 'react';
 import { useAppContext } from '@/context/app-context';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Star, Download, Music } from 'lucide-react';
+import { Search, Star, Download, Music, History } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -47,7 +47,16 @@ export function SongHistory() {
 
   return (
     <Card className="border-transparent bg-card/50 backdrop-blur-sm">
-      <CardContent className="p-6">
+       <CardHeader>
+        <CardTitle className="font-headline text-2xl flex items-center gap-3">
+            <History className="w-7 h-7 text-primary" />
+            Song History
+        </CardTitle>
+        <CardDescription>
+          Here you can see all the songs you've discovered. Search, filter, and export your history.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="p-6 pt-0">
         <div className="flex flex-col md:flex-row gap-4 justify-between items-center mb-6">
           <div className="relative w-full md:max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
@@ -67,10 +76,10 @@ export function SongHistory() {
                 />
               <Label htmlFor="favorites-only" className="text-primary-foreground">Favorites Only</Label>
             </div>
-            <Button variant="outline" onClick={exportAllSongs}>
+            <Button variant="outline" onClick={exportAllSongs} disabled={loggedSongs.length === 0}>
               <Download className="mr-2 h-4 w-4" /> Export All
             </Button>
-            <Button variant="outline" onClick={exportFavoriteSongs}>
+            <Button variant="outline" onClick={exportFavoriteSongs} disabled={loggedSongs.filter(s => s.isFavorite).length === 0}>
               <Star className="mr-2 h-4 w-4" /> Export Favorites
             </Button>
           </div>
@@ -110,7 +119,7 @@ export function SongHistory() {
                     </TableCell>
                     <TableCell className="text-muted-foreground">{song.stationName}</TableCell>
                     <TableCell className="text-right text-muted-foreground">
-                      {formatDistanceToNow(song.timestamp, { addSuffix: true })}
+                      {formatDistanceToNow(new Date(song.timestamp), { addSuffix: true })}
                     </TableCell>
                   </TableRow>
                 ))

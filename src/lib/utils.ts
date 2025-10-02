@@ -1,6 +1,7 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 import type { Song } from '@/lib/types';
+import { format } from 'date-fns';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -22,7 +23,10 @@ export function exportSongsToTxt(songs: Song[], favoritesOnly: boolean) {
     if (groupedByStation[stationName].length > 0) {
       content += `--- ${stationName} ---\n`;
       groupedByStation[stationName].forEach(song => {
-        content += `${song.artist} - ${song.title}\n`;
+        // Ensure timestamp is a Date object before formatting
+        const timestamp = typeof song.timestamp === 'string' ? new Date(song.timestamp) : song.timestamp;
+        const formattedDate = format(timestamp, 'yyyy-MM-dd HH:mm:ss');
+        content += `[${formattedDate}] ${song.artist} - ${song.title}\n`;
       });
       content += '\n';
     }

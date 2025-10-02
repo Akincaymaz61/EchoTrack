@@ -19,7 +19,8 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((val: T) => T)) => void] {
-  const [storedValue, setStoredValue] = useState<T>(initialValue);
+  const [storedValue, setStoredValue] = useState<T>(() => initialValue);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
     // This effect runs only on the client, after the initial render
@@ -30,22 +31,28 @@ function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((val
       }
     } catch (error) {
       console.log(error);
+    } finally {
+      setIsInitialized(true);
     }
   }, [key]);
 
   const setValue = (value: T | ((val: T) => T)) => {
+    if (typeof window === 'undefined') {
+      console.warn(`Tried to set localStorage key “${key}” even though environment is not a client`);
+      return;
+    }
     try {
       const valueToStore = value instanceof Function ? value(storedValue) : value;
       setStoredValue(valueToStore);
-      if (typeof window !== 'undefined') {
-        window.localStorage.setItem(key, JSON.stringify(valueToStore));
-      }
+      window.localStorage.setItem(key, JSON.stringify(valueToStore));
     } catch (error) {
       console.log(error);
     }
   };
-
-  return [storedValue, setValue];
+  
+  // Return the initial value until the component has mounted and localStorage is read
+  // This helps prevent hydration mismatch
+  return [isInitialized ? storedValue : initialValue, setValue];
 }
 
 
@@ -93,12 +100,11 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   }, [setLoggedSongs]);
 
   const exportAllSongs = useCallback(() => {
-    const songsWithDates = loggedSongs.map(s => ({...s, timestamp: new Date(s.timestamp)}));
-    exportSongsToTxt(songsWithDates, false);
+    exportSongsToTxt(loggedSongs, false);
   }, [loggedSongs]);
 
   const exportFavoriteSongs = useCallback(() => {
-    const favoriteSongs = loggedSongs.filter(song => song.isFavorite).map(s => ({...s, timestamp: new Date(s.timestamp)}));
+    const favoriteSongs = loggedSongs.filter(song => song.isFavorite);
     exportSongsToTxt(favoriteSongs, true);
   }, [loggedSongs]);
   

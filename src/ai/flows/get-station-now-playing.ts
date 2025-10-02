@@ -64,9 +64,13 @@ async function fetchStreamMetadata(streamUrl: string): Promise<{ artist?: string
 
                         if (streamTitle) {
                             const parts = streamTitle.split(' - ');
-                            if (parts.length >= 2) {
+                            // Basic filter for ads/jingles: requires a separator and avoids common non-song patterns.
+                            if (parts.length >= 2 && !streamTitle.toLowerCase().includes('advertising') && !streamTitle.toLowerCase().includes('commercial')) {
                                 resolve({ artist: parts[0].trim(), title: parts.slice(1).join(' - ').trim() });
-                            } else {
+                            } else if (parts.length < 2) {
+                                resolve({ error: 'Not a song title.' });
+                            }
+                             else {
                                 resolve({ title: streamTitle.trim() });
                             }
                         } else {
@@ -109,6 +113,9 @@ const getStationNowPlayingFlow = ai.defineFlow(
         const metadata = await fetchStreamMetadata(url);
         if (metadata.error) {
             return { error: metadata.error };
+        }
+        if (!metadata.artist || !metadata.title) {
+            return { error: 'Could not parse artist and title.' };
         }
         return {
             artist: metadata.artist,
