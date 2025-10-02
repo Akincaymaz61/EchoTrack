@@ -120,52 +120,61 @@ export function StationCard({ station }: StationCardProps) {
      return loggedVersion?.id;
   },[currentSong, loggedSongs, station.name]);
 
+
   const updateNowPlaying = useCallback(async (isInitialLoad = false) => {
     if (!station.url) {
-      setError("No stream URL for this station.");
-      if (isInitialLoad) setIsLoading(false);
-      return;
+        setError("No stream URL for this station.");
+        if (isInitialLoad) setIsLoading(false);
+        return;
     }
-    
+
     if (isInitialLoad) setIsLoading(true);
 
     try {
         const result = await fetchNowPlaying(station.url);
         
         if (result.error) {
-          setError(result.error);
+            setError(result.error);
         } else if (result.song) {
-          setError(null);
-          
-          setCurrentSong(prevSong => {
-              if (result.song!.title !== prevSong?.title || result.song!.artist !== prevSong?.artist) {
-                   const newSong: CurrentSongInfo = {
-                    id: `song-${Date.now()}`,
-                    artist: result.song!.artist,
-                    title: result.song!.title,
-                };
-                
+            setError(null);
+            
+            // This is the key change: we check if the song is new *before* any state updates.
+            const isNewSong = result.song.title !== currentSong?.title || result.song.artist !== currentSong?.artist;
+
+            if (isNewSong) {
+                // If it's a new song, we perform the state updates sequentially.
                 logSong({
-                    artist: newSong.artist,
-                    title: newSong.title,
+                    artist: result.song.artist,
+                    title: result.song.title,
                     stationName: station.name,
                 });
-    
-                return newSong;
-              }
-              return prevSong;
-          });
+                
+                const newSongInfo: CurrentSongInfo = {
+                    id: `song-${Date.now()}`,
+                    artist: result.song.artist,
+                    title: result.song.title,
+                };
+                setCurrentSong(newSongInfo);
+            }
         }
     } catch (e: any) {
         setError("Failed to fetch now playing data.");
     } finally {
         if (isInitialLoad) setIsLoading(false);
     }
-  }, [station.url, station.name, logSong]);
+  // The dependency array is crucial. It ensures this function is stable.
+  }, [station.url, station.name, logSong, currentSong?.title, currentSong?.artist]);
 
   useEffect(() => {
-    updateNowPlaying(true);
-    const interval = setInterval(() => updateNowPlaying(false), 15000);
+    // Run once on mount
+    updateNowPlaying(true); 
+    
+    // Then set up the interval
+    const interval = setInterval(() => {
+        updateNowPlaying(false);
+    }, 15000); 
+
+    // Cleanup on unmount
     return () => clearInterval(interval);
   }, [updateNowPlaying]);
 
@@ -343,3 +352,5 @@ export function StationCard({ station }: StationCardProps) {
     </>
   );
 }
+
+    
