@@ -9,13 +9,13 @@
  */
 
 import { ai } from '@/ai/genkit';
-import { z } from 'genkit';
+import { z } from 'zod';
 import * as http from 'http';
 import * as https from 'https';
 import { URL } from 'url';
 
 const GetStationNowPlayingInputSchema = z.object({
-  url: z.string().url().describe('The URL of the radio stream.'),
+  url: z.string().url().describe('The URL of the radio stream or website.'),
 });
 export type GetStationNowPlayingInput = z.infer<typeof GetStationNowPlayingInputSchema>;
 
@@ -29,6 +29,50 @@ export type GetStationNowPlayingOutput = z.infer<typeof GetStationNowPlayingOutp
 
 export async function getStationNowPlaying(input: GetStationNowPlayingInput): Promise<GetStationNowPlayingOutput> {
   return getStationNowPlayingFlow(input);
+}
+
+async function findStreamInPage(pageUrl: string): Promise<string | null> {
+    return new Promise((resolve) => {
+        const url = new URL(pageUrl);
+        const protocol = url.protocol === 'https:' ? https : http;
+
+        protocol.get(pageUrl, { headers: { 'User-Agent': 'EchoTrack/1.0' } }, (res) => {
+            let body = '';
+            if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+                resolve(findStreamInPage(res.headers.location));
+                res.destroy();
+                return;
+            }
+            res.on('data', chunk => body += chunk);
+            res.on('end', () => {
+                // Regex to find stream URLs in HTML content (e.g., in <audio src="..."> or links)
+                const streamRegex = /(https?:\/\/[^"'<>\s]+\/(?:;|\bice-?cast\b|\bshout-?cast\b|\blive\b|\bstream\b)[^"'<>\s]*)/gi;
+                const audioSrcRegex = /<audio[^>]+src=["'](https?:\/\/[^"']+)["']/gi;
+                const portRegex = /(https?:\/\/[^"'<>\s]+:\d{4,5}\/[^"'<>\s]*)/gi;
+                const mp3Regex = /(https?:\/\/[^"'<>\s]+\.mp3)/gi;
+                const aacRegex = /(httpshttps?:\/\/[^"'<>\s]+\.aac)/gi;
+
+                let match;
+                
+                match = streamRegex.exec(body);
+                if (match) { resolve(match[0]); return; }
+                
+                match = audioSrcRegex.exec(body);
+                if (match) { resolve(match[1]); return; }
+
+                match = portRegex.exec(body);
+                if (match) { resolve(match[0]); return; }
+                
+                match = mp3Regex.exec(body);
+                if (match) { resolve(match[0]); return; }
+
+                match = aacRegex.exec(body);
+                if (match) { resolve(match[0]); return; }
+                
+                resolve(null);
+            });
+        }).on('error', () => resolve(null));
+    });
 }
 
 
@@ -55,39 +99,42 @@ async function fetchStreamMetadata(streamUrl: string, redirectCount = 0): Promis
             // Handle redirects
             if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
                 res.destroy();
-                return fetchStreamMetadata(res.headers.location, redirectCount + 1).then(resolve).catch(e => resolve({ error: `Redirect failed: ${e.message}`}));
+                const newUrl = new URL(res.headers.location, streamUrl).href;
+                fetchStreamMetadata(newUrl, redirectCount + 1).then(resolve).catch(e => resolve({ error: `Redirect failed: ${e.message}`}));
+                return;
             }
 
             let metaInt = 0;
-            if (res.headers['icy-metaint']) {
-                metaInt = parseInt(res.headers['icy-metaint'] as string, 10);
+            const icyMetaIntHeader = res.headers['icy-metaint'];
+            if (typeof icyMetaIntHeader === 'string') {
+                metaInt = parseInt(icyMetaIntHeader, 10);
             }
 
             if (!metaInt) {
                 // Check for SHOUTcast v1 style metadata on status page
-                const statusPath = url.pathname.endsWith('/') ? `${url.pathname}7.html` : `${url.pathname}/7.html`;
-                const statusOptions = { ...options, path: statusPath };
-                
-                protocol.get(statusOptions, (statusRes) => {
-                     let body = '';
-                     statusRes.on('data', chunk => body += chunk);
-                     statusRes.on('end', () => {
-                        const match = body.match(/<body.*?>.*?,(\d+),\d+,\d+,\d+,\d+,\d+,(.*?)<\/body>/ims);
-                        if (match && match[2]) {
-                             const streamTitle = match[2].trim();
-                             const parts = streamTitle.split(' - ');
-                             if (parts.length >= 2) {
-                                 resolve({ artist: parts[0].trim(), title: parts.slice(1).join(' - ').trim() });
-                             } else {
-                                 resolve({ title: streamTitle });
-                             }
-                        } else {
-                            resolve({ error: 'Stream does not support Icy-MetaData and is not a compatible SHOUTcast v1 stream.' });
-                        }
-                     });
-                }).on('error', () => {
-                     resolve({ error: 'Stream does not support Icy-MetaData.' });
-                });
+                 const statusPath = url.pathname.endsWith('/') ? `${url.pathname}7.html` : `${url.pathname}/7.html`;
+                 const statusOptions = { ...options, path: statusPath };
+                 
+                 protocol.get(statusOptions, (statusRes) => {
+                      let body = '';
+                      statusRes.on('data', chunk => body += chunk);
+                      statusRes.on('end', () => {
+                         const match = body.match(/<body.*?>.*Current Song: <\/b>(.*?)<\/td>.*<\/table>.*<\/body>/ims) || body.match(/StreamTitle:'(.*?)'/);
+                         if (match && match[1]) {
+                              const streamTitle = match[1].trim();
+                              const parts = streamTitle.split(' - ');
+                              if (parts.length >= 2) {
+                                  resolve({ artist: parts[0].trim(), title: parts.slice(1).join(' - ').trim() });
+                              } else {
+                                  resolve({ title: streamTitle });
+                              }
+                         } else {
+                             resolve({ error: 'Stream does not support Icy-MetaData and is not a compatible SHOUTcast v1 stream.' });
+                         }
+                      });
+                 }).on('error', () => {
+                      resolve({ error: 'Stream does not support Icy-MetaData.' });
+                 });
                 return;
             }
             
@@ -110,9 +157,9 @@ async function fetchStreamMetadata(streamUrl: string, redirectCount = 0): Promis
 
                         if (streamTitle) {
                             const parts = streamTitle.split(' - ');
-                            if (parts.length >= 2 && !/ad|advert|commercial/i.test(streamTitle) && streamTitle.length > 5) {
+                            if (parts.length >= 2 && !/ad|advert|commercial|sponsor/i.test(streamTitle) && streamTitle.length > 5) {
                                 resolve({ artist: parts[0].trim(), title: parts.slice(1).join(' - ').trim() });
-                            } else if (parts.length === 1 && !/ad|advert|commercial/i.test(streamTitle) && streamTitle.length > 5) {
+                            } else if (parts.length === 1 && !/ad|advert|commercial|sponsor/i.test(streamTitle) && streamTitle.length > 5) {
                                 resolve({ title: streamTitle.trim() });
                             }
                              else {
@@ -132,7 +179,6 @@ async function fetchStreamMetadata(streamUrl: string, redirectCount = 0): Promis
             });
         });
         
-        // Timeout to prevent hanging connections
         const timeout = setTimeout(() => {
             req.destroy();
             resolve({ error: 'Metadata fetch timed out.' });
@@ -156,7 +202,24 @@ const getStationNowPlayingFlow = ai.defineFlow(
   },
   async ({ url }) => {
     try {
-        const metadata = await fetchStreamMetadata(url);
+        let streamUrl: string | null = url;
+        const metadataFromInitialUrl = await fetchStreamMetadata(url);
+
+        if (!metadataFromInitialUrl.error && metadataFromInitialUrl.title) {
+            return {
+                artist: metadataFromInitialUrl.artist || 'Unknown Artist',
+                title: metadataFromInitialUrl.title,
+            };
+        }
+
+        // If the initial URL didn't work, try to find a stream URL in the page
+        streamUrl = await findStreamInPage(url);
+        if (!streamUrl) {
+            return { error: 'Could not find a valid audio stream on the provided page.' };
+        }
+        
+        const metadata = await fetchStreamMetadata(streamUrl);
+
         if (metadata.error) {
             return { error: metadata.error };
         }
