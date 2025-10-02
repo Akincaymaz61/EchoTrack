@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect } from 'react';
@@ -7,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { iconNames, ICONS } from '@/lib/data';
+import { iconNames, ICONS, GENRES } from '@/lib/data';
 import type { Station } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Pencil } from 'lucide-react';
@@ -78,12 +77,16 @@ export function EditStationForm({ station, isOpen, setIsOpen }: EditStationFormP
           </div>
           <div className="space-y-2">
             <label htmlFor="edit-station-genre" className="text-sm font-medium">Genre</label>
-            <Input
-              id="edit-station-genre"
-              placeholder="e.g., Ambient Techno"
-              value={genre}
-              onChange={(e) => setGenre(e.target.value)}
-            />
+            <Select value={genre} onValueChange={setGenre}>
+                <SelectTrigger id="edit-station-genre">
+                    <SelectValue placeholder="Select a genre" />
+                </SelectTrigger>
+                <SelectContent>
+                    {GENRES.map(g => (
+                        <SelectItem key={g} value={g}>{g}</SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <label htmlFor="edit-station-url" className="text-sm font-medium">Stream URL (Optional)</label>

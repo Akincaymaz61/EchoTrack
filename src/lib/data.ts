@@ -14,6 +14,22 @@ export const ICONS = {
 
 export const iconNames = Object.keys(ICONS) as (keyof typeof ICONS)[];
 
+export const GENRES = [
+    'Pop',
+    'Rock',
+    'Rap',
+    'Electronic',
+    'Ambient',
+    'Chillhop',
+    'Synthwave',
+    '80s Retro',
+    'Türkçe Pop',
+    'Türkçe Rock',
+    'Alternative',
+    'Jazz',
+    'Classical'
+];
+
 
 export const STATIONS: Station[] = [
   { id: 'station-1', name: 'Synthwave FM', genre: '80s Retro', icon: 'Radio', url: 'http://ice1.somafm.com/synthwave-128-mp3' },

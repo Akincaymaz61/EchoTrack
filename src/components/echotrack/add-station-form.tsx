@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { PlusCircle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { iconNames, ICONS } from '@/lib/data';
+import { iconNames, ICONS, GENRES } from '@/lib/data';
 
 export function AddStationForm() {
   const { addStation } = useAppContext();
@@ -54,12 +54,16 @@ export function AddStationForm() {
       </div>
       <div className="space-y-2">
         <label htmlFor="station-genre" className="text-sm font-medium">Genre</label>
-        <Input
-          id="station-genre"
-          placeholder="e.g., Ambient Techno"
-          value={genre}
-          onChange={(e) => setGenre(e.target.value)}
-        />
+        <Select value={genre} onValueChange={setGenre}>
+            <SelectTrigger id="station-genre">
+                <SelectValue placeholder="Select a genre" />
+            </SelectTrigger>
+            <SelectContent>
+                {GENRES.map(g => (
+                    <SelectItem key={g} value={g}>{g}</SelectItem>
+                ))}
+            </SelectContent>
+        </Select>
       </div>
       <div className="space-y-2">
         <label htmlFor="station-url" className="text-sm font-medium">Stream URL (Optional)</label>
