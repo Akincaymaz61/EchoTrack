@@ -28,7 +28,8 @@ export function exportSongsToTxt(songs: Song[], favoritesOnly: boolean, stationN
 
   for (const stationName in groupedByStation) {
     if (groupedByStation[stationName].length > 0) {
-      content += `--- ${stationName} ---\n`;
+      const category = groupedByStation[stationName][0].stationCategory;
+      content += `--- ${stationName} [${category}] ---\n`;
       groupedByStation[stationName].forEach(song => {
         content += `${song.artist} - ${song.title}\n`;
       });

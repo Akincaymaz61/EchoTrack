@@ -89,7 +89,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setStations(prevStations => prevStations.filter(s => s.id !== stationId));
   }, [setStations]);
 
-  const logSong = useCallback((songData: Omit<Song, 'id' | 'timestamp' | 'isFavorite'>): string | undefined => {
+  const logSong = useCallback((songData: Omit<Song, 'id' | 'timestamp' | 'isFavorite' | 'stationCategory'> & {stationCategory: Station['category']}): string | undefined => {
      let newSongId: string | undefined = undefined;
      setLoggedSongs(currentSongs => {
         const songExists = currentSongs.some(

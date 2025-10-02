@@ -212,6 +212,7 @@ export function StationCard({ station }: StationCardProps) {
         artist: currentSong.artist,
         title: currentSong.title,
         stationName: station.name,
+        stationCategory: station.category,
       });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -231,6 +232,7 @@ export function StationCard({ station }: StationCardProps) {
             artist: currentSong.artist,
             title: currentSong.title,
             stationName: station.name,
+            stationCategory: station.category,
         };
         const newId = logSong(newSongEntry);
         

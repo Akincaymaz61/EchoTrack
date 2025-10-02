@@ -8,6 +8,7 @@ export type Song = {
   title: string;
   timestamp: Date | string;
   stationName: string;
+  stationCategory: keyof typeof CATEGORIES;
   isFavorite: boolean;
 };
 
