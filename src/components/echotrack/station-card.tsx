@@ -7,10 +7,10 @@ import { useAppContext } from '@/context/app-context';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Star, Music, Loader2, BrainCircuit, X, PowerOff, Play, Pause, Pencil } from 'lucide-react';
+import { Star, Music, Loader2, X, PowerOff, Play, Pause, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import { getTrendSummary, fetchNowPlaying } from '@/app/actions';
+import { fetchNowPlaying } from '@/app/actions';
 import { EditStationForm } from '@/components/echotrack/edit-station-form';
 import {
   AlertDialog,
@@ -41,9 +41,6 @@ export function StationCard({ station }: StationCardProps) {
   const { logSong, loggedSongs, toggleFavorite, removeStation, currentlyPlayingStationId, setCurrentlyPlayingStationId } = useAppContext();
   const [currentSong, setCurrentSong] = useState<CurrentSongInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analysisResult, setAnalysisResult] = useState<string | null>(null);
-  const [isAnalysisDialogOpen, setIsAnalysisDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
@@ -150,6 +147,7 @@ export function StationCard({ station }: StationCardProps) {
       if (!station.url) {
         if (isMounted) {
           setError("No stream URL for this station.");
+          setIsLoading(false);
         }
         return;
       }
@@ -193,7 +191,7 @@ export function StationCard({ station }: StationCardProps) {
           }
         }
       } finally {
-        if (isMounted && isInitialLoad) {
+        if (isMounted) {
           setIsLoading(false);
         }
       }
@@ -217,7 +215,6 @@ export function StationCard({ station }: StationCardProps) {
         stationName: station.name,
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSong]);
 
 
@@ -254,38 +251,6 @@ export function StationCard({ station }: StationCardProps) {
         description: `${station.name} has been removed from your list.`,
     });
   };
-
-  const handleAnalyzeTrends = async () => {
-    setIsAnalyzing(true);
-    const stationHistory = loggedSongs
-      .filter(s => s.stationName === station.name)
-      .map(s => ({ artist: s.artist, title: s.title, timestamp: s.timestamp.toString() }));
-
-    if (stationHistory.length < 1) { 
-      toast({
-        variant: "destructive",
-        title: "Not Enough Data",
-        description: "Need at least 1 logged song to analyze trends for this station.",
-      });
-      setIsAnalyzing(false);
-      return;
-    }
-    
-    const result = await getTrendSummary(station.name, stationHistory);
-    setIsAnalyzing(false);
-
-    if (result.summary) {
-      setAnalysisResult(result.summary);
-      setIsAnalysisDialogOpen(true);
-    } else {
-      toast({
-        variant: "destructive",
-        title: "Analysis Failed",
-        description: result.error || "Could not generate station trend summary.",
-      });
-    }
-  };
-
 
   return (
     <>
@@ -352,7 +317,7 @@ export function StationCard({ station }: StationCardProps) {
             {isPlaying && analyserRef.current && <SoundWave analyser={analyserRef.current} />}
         </div>
         
-        <CardFooter className="flex justify-between items-center gap-2 bg-black/20 z-10 p-3">
+        <CardFooter className="flex justify-around items-center gap-2 bg-black/20 z-10 p-3">
            <Button variant="ghost" size="icon" onClick={handleFavoriteClick} disabled={!currentSong || isLoading}>
             <Star className={cn("w-5 h-5 transition-colors", isCurrentSongFavorite ? 'fill-amber-400 text-amber-400' : 'text-primary/70')} />
             <span className="sr-only">Favorite</span>
@@ -363,30 +328,10 @@ export function StationCard({ station }: StationCardProps) {
             <span className="sr-only">{isPlaying ? 'Pause' : 'Play'}</span>
           </Button>
 
-          <Button variant="ghost" size="icon" onClick={handleAnalyzeTrends} disabled={isAnalyzing}>
-            {isAnalyzing ? <Loader2 className="w-5 h-5 animate-spin" /> : <BrainCircuit className="w-5 h-5 text-primary/70" />}
-            <span className="sr-only">Analyze</span>
-          </Button>
+          <div className="w-10 h-10" />
         </CardFooter>
       </Card>
       
-      <AlertDialog open={isAnalysisDialogOpen} onOpenChange={setIsAnalysisDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="font-headline flex items-center gap-2">
-              <BrainCircuit className="w-5 h-5 text-primary" />
-              Trend Analysis for {station.name}
-            </AlertDialogTitle>
-            <AlertDialogDescription className="text-left pt-4 max-h-[400px] overflow-y-auto">
-              {analysisResult}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction>Close</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
       <EditStationForm 
         station={station}
         isOpen={isEditDialogOpen}
