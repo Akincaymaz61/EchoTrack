@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { Song, Station } from '@/lib/types';
@@ -40,6 +41,7 @@ export function StationCard({ station }: StationCardProps) {
   const [isAnalysisDialogOpen, setIsAnalysisDialogOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const { toast } = useToast();
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const intervalRef = useRef<NodeJS.Timeout>();
@@ -292,3 +294,5 @@ export function StationCard({ station }: StationCardProps) {
     </>
   );
 }
+
+    
