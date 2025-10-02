@@ -116,29 +116,37 @@ export function StationCard({ station }: StationCardProps) {
     }
 
     const result = await fetchNowPlaying(station.url);
-    if(isLoading) setIsLoading(false);
+    
+    // Always set loading to false after the first fetch attempt
+    setIsLoading(false);
 
     if (result.error) {
       setError(result.error);
       setCurrentSong(null);
     } else if (result.song) {
       setError(null);
-      if (result.song.title !== currentSong?.title || result.song.artist !== currentSong?.artist) {
-        const newSong: CurrentSongInfo = {
-            id: `song-${Date.now()}`,
-            artist: result.song.artist,
-            title: result.song.title,
-        };
-        setCurrentSong(newSong);
-        
-        logSong({
-            artist: newSong.artist,
-            title: newSong.title,
-            stationName: station.name,
-        });
-      }
+      
+      // Use a functional update for setCurrentSong if we depend on its previous state
+      setCurrentSong(prevSong => {
+          if (result.song.title !== prevSong?.title || result.song.artist !== prevSong?.artist) {
+               const newSong: CurrentSongInfo = {
+                id: `song-${Date.now()}`,
+                artist: result.song.artist,
+                title: result.song.title,
+            };
+            
+            logSong({
+                artist: newSong.artist,
+                title: newSong.title,
+                stationName: station.name,
+            });
+
+            return newSong;
+          }
+          return prevSong;
+      });
     }
-  }, [station.url, station.name, currentSong?.title, currentSong?.artist, logSong, isLoading]);
+  }, [station.url, station.name, logSong]);
 
   useEffect(() => {
     // Clear any existing interval before setting a new one.
@@ -146,9 +154,13 @@ export function StationCard({ station }: StationCardProps) {
         clearInterval(intervalRef.current);
     }
 
+    // Initial call
     updateNowPlaying();
+    
+    // Set up the interval
     intervalRef.current = setInterval(updateNowPlaying, 15000);
 
+    // Cleanup function
     return () => {
         if (intervalRef.current) {
             clearInterval(intervalRef.current);
@@ -330,5 +342,3 @@ export function StationCard({ station }: StationCardProps) {
     </>
   );
 }
-
-    

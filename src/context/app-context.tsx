@@ -81,11 +81,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const logSong = useCallback((songData: Omit<Song, 'id' | 'timestamp' | 'isFavorite'>): string | undefined => {
      let newSongId: string | undefined = undefined;
      setLoggedSongs(currentSongs => {
-        if (currentSongs.length > 0) {
-            const lastSong = currentSongs[0];
-            if (lastSong.title === songData.title && lastSong.artist === songData.artist && lastSong.stationName === songData.stationName) {
-                return currentSongs;
-            }
+        const lastSong = currentSongs[currentSongs.length - 1];
+        if (lastSong && lastSong.title === songData.title && lastSong.artist === songData.artist && lastSong.stationName === songData.stationName) {
+            return currentSongs;
         }
           
         const newSong: Song = {
@@ -95,7 +93,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           isFavorite: false,
         };
         newSongId = newSong.id;
-        return [newSong, ...currentSongs];
+        return [...currentSongs, newSong];
      });
      return newSongId;
   }, [setLoggedSongs]);
@@ -129,7 +127,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const songsWithDates = loggedSongs.map(s => {
     const timestamp = typeof s.timestamp === 'string' ? new Date(s.timestamp) : s.timestamp;
     return {...s, timestamp};
-  });
+  }).reverse();
 
 
   const value = {
