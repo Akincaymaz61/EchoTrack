@@ -15,6 +15,8 @@ interface AppContextType {
   toggleFavorite: (songId: string) => void;
   exportAllSongs: () => void;
   exportFavoriteSongs: () => void;
+  exportStationSongs: (stationName: string) => void;
+  clearHistory: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -114,6 +116,15 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const favoriteSongs = loggedSongs.filter(song => song.isFavorite);
     exportSongsToTxt(favoriteSongs, true);
   }, [loggedSongs]);
+
+  const exportStationSongs = useCallback((stationName: string) => {
+    const stationSongs = loggedSongs.filter(song => song.stationName === stationName);
+    exportSongsToTxt(stationSongs, false, stationName);
+  }, [loggedSongs]);
+
+  const clearHistory = useCallback(() => {
+    setLoggedSongs([]);
+  }, [setLoggedSongs]);
   
   const songsWithDates = loggedSongs.map(s => {
     const timestamp = typeof s.timestamp === 'string' ? new Date(s.timestamp) : s.timestamp;
@@ -130,7 +141,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     logSong,
     toggleFavorite,
     exportAllSongs,
-    exportFavoriteSongs
+    exportFavoriteSongs,
+    exportStationSongs,
+    clearHistory
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

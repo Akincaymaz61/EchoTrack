@@ -6,15 +6,35 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Star, Download, Music, History } from 'lucide-react';
+import { Search, Star, Download, Music, History, Trash2, ChevronDown } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
+
 
 export function SongHistory() {
-  const { loggedSongs, toggleFavorite, exportAllSongs, exportFavoriteSongs } = useAppContext();
+  const { loggedSongs, toggleFavorite, exportAllSongs, exportFavoriteSongs, exportStationSongs, clearHistory, stations } = useAppContext();
   const [searchTerm, setSearchTerm] = useState('');
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
   const { toast } = useToast();
@@ -44,6 +64,18 @@ export function SongHistory() {
       description: `${title} by ${artist}`,
     });
   };
+  
+  const handleClearHistory = () => {
+    clearHistory();
+    toast({
+      title: "History Cleared",
+      description: "All logged songs have been removed.",
+    });
+  }
+
+  const stationNamesFromHistory = useMemo(() => {
+    return [...new Set(loggedSongs.map(s => s.stationName))]
+  }, [loggedSongs]);
 
   return (
     <Card className="border-transparent bg-card/50 backdrop-blur-sm">
@@ -76,12 +108,49 @@ export function SongHistory() {
                 />
               <Label htmlFor="favorites-only" className="text-primary-foreground">Favorites Only</Label>
             </div>
-            <Button variant="outline" onClick={exportAllSongs} disabled={loggedSongs.length === 0}>
-              <Download className="mr-2 h-4 w-4" /> Export All
-            </Button>
-            <Button variant="outline" onClick={exportFavoriteSongs} disabled={loggedSongs.filter(s => s.isFavorite).length === 0}>
-              <Star className="mr-2 h-4 w-4" /> Export Favorites
-            </Button>
+             <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <Download className="mr-2 h-4 w-4" /> Export <ChevronDown className="ml-2 h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent>
+                <DropdownMenuItem onClick={exportAllSongs} disabled={loggedSongs.length === 0}>
+                  Export All
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={exportFavoriteSongs} disabled={loggedSongs.filter(s => s.isFavorite).length === 0}>
+                  <Star className="mr-2 h-4 w-4" /> Export Favorites
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Export by Station</DropdownMenuLabel>
+                {stationNamesFromHistory.map(stationName => (
+                  <DropdownMenuItem key={stationName} onClick={() => exportStationSongs(stationName)}>
+                    {stationName}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                 <Button variant="destructive" disabled={loggedSongs.length === 0}>
+                  <Trash2 className="mr-2 h-4 w-4" /> Clear History
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Are you sure you want to clear the history?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action cannot be undone. This will permanently delete all {loggedSongs.length} logged songs.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleClearHistory}>Clear History</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+
           </div>
         </div>
 
