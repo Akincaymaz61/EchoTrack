@@ -23,10 +23,7 @@ export function exportSongsToTxt(songs: Song[], favoritesOnly: boolean) {
     if (groupedByStation[stationName].length > 0) {
       content += `--- ${stationName} ---\n`;
       groupedByStation[stationName].forEach(song => {
-        // Ensure timestamp is a Date object before formatting
-        const timestamp = typeof song.timestamp === 'string' ? new Date(song.timestamp) : song.timestamp;
-        const formattedDate = format(timestamp, 'yyyy-MM-dd HH:mm:ss');
-        content += `[${formattedDate}] ${song.artist} - ${song.title}\n`;
+        content += `${song.artist} - ${song.title}\n`;
       });
       content += '\n';
     }
