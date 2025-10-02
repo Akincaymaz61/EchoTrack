@@ -76,13 +76,12 @@ export function StationCard({ station }: StationCardProps) {
             setIsPlaying(false);
         } else {
             try {
-                // Set volume to 0.5 to avoid being too loud
                 audioRef.current.volume = 0.5;
                 await audioRef.current.play();
                 setIsPlaying(true);
             } catch (e: any) {
-                // Ignore AbortError which happens on pause
                 if (e.name === 'AbortError') {
+                    // This error is expected when pausing, so we can ignore it.
                     return;
                 }
                 toast({
@@ -108,31 +107,36 @@ export function StationCard({ station }: StationCardProps) {
      return loggedVersion?.id;
   },[currentSong, loggedSongs, station.name]);
 
-  const updateNowPlaying = useCallback(async () => {
+  const updateNowPlaying = useCallback(async (isInitialLoad = false) => {
     if (!station.url) {
       setError("No stream URL for this station.");
       setIsLoading(false);
       return;
     }
+    
+    // Only show loader on the very first load
+    if (isInitialLoad) {
+      setIsLoading(true);
+    }
 
     const result = await fetchNowPlaying(station.url);
     
-    // Always set loading to false after the first fetch attempt
+    // Always set loading to false after any fetch attempt
     setIsLoading(false);
 
     if (result.error) {
       setError(result.error);
-      setCurrentSong(null);
+      // Do not clear the current song, so the last known song remains visible
+      // setCurrentSong(null); 
     } else if (result.song) {
       setError(null);
       
-      // Use a functional update for setCurrentSong if we depend on its previous state
       setCurrentSong(prevSong => {
-          if (result.song.title !== prevSong?.title || result.song.artist !== prevSong?.artist) {
+          if (result.song!.title !== prevSong?.title || result.song!.artist !== prevSong?.artist) {
                const newSong: CurrentSongInfo = {
                 id: `song-${Date.now()}`,
-                artist: result.song.artist,
-                title: result.song.title,
+                artist: result.song!.artist,
+                title: result.song!.title,
             };
             
             logSong({
@@ -149,18 +153,16 @@ export function StationCard({ station }: StationCardProps) {
   }, [station.url, station.name, logSong]);
 
   useEffect(() => {
-    // Clear any existing interval before setting a new one.
     if (intervalRef.current) {
         clearInterval(intervalRef.current);
     }
 
-    // Initial call
-    updateNowPlaying();
+    // Initial call with a flag to show the loader
+    updateNowPlaying(true);
     
-    // Set up the interval
-    intervalRef.current = setInterval(updateNowPlaying, 15000);
+    // Subsequent calls will be silent background updates
+    intervalRef.current = setInterval(() => updateNowPlaying(false), 15000);
 
-    // Cleanup function
     return () => {
         if (intervalRef.current) {
             clearInterval(intervalRef.current);
