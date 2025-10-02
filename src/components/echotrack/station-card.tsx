@@ -201,7 +201,7 @@ export function StationCard({ station }: StationCardProps) {
           }
         }
       } finally {
-        if (isMounted && isInitialLoad) {
+        if (isMounted) {
             setIsLoading(false);
         }
       }
@@ -225,7 +225,7 @@ export function StationCard({ station }: StationCardProps) {
       });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentSong]);
+  }, [currentSong, logSong, station.name]);
 
 
   const handleFavoriteClick = () => {
@@ -332,7 +332,7 @@ export function StationCard({ station }: StationCardProps) {
             </div>
           ) : currentSong ? (
             <div className="w-full">
-              <p className="text-xs text-primary font-semibold mb-1">NOW PLAYING</p>
+              <p className="text-xs text-muted-foreground font-semibold mb-1">NOW PLAYING</p>
               <p className="text-lg font-bold text-primary leading-tight">{currentSong.title}</p>
               <p className="text-md text-secondary-foreground">{currentSong.artist}</p>
             </div>
