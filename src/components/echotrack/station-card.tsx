@@ -122,14 +122,12 @@ export function StationCard({ station }: StationCardProps) {
 
 
   useEffect(() => {
-    const updateNowPlaying = async (isInitialLoad = false) => {
+    const updateNowPlaying = async () => {
         if (!station.url) {
             setError("No stream URL for this station.");
-            if (isInitialLoad) setIsLoading(false);
+            setIsLoading(false);
             return;
         }
-
-        if (isInitialLoad) setIsLoading(true);
 
         try {
             const result = await fetchNowPlaying(station.url);
@@ -162,15 +160,14 @@ export function StationCard({ station }: StationCardProps) {
             setError("Failed to fetch now playing data.");
             setCurrentSong(null);
         } finally {
-            if (isInitialLoad) setIsLoading(false);
+            setIsLoading(false);
         }
     };
     
-    updateNowPlaying(true);
+    setIsLoading(true);
+    updateNowPlaying();
     
-    const interval = setInterval(() => {
-        updateNowPlaying(false);
-    }, 15000); 
+    const interval = setInterval(updateNowPlaying, 15000); 
 
     return () => clearInterval(interval);
   // eslint-disable-next-line react-hooks/exhaustive-deps
