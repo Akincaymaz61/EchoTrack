@@ -9,8 +9,8 @@ export function Header() {
           EchoTrack
         </h1>
       </div>
-      <p className="mt-2 text-lg text-muted-foreground">
-        Discover and track songs from AI-powered radio stations.
+      <p className="mt-2 text-lg text-muted-foreground max-w-xl">
+        Simultaneously monitor and discover music from your favorite online radio stations.
       </p>
     </header>
   );

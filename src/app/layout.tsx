@@ -4,7 +4,7 @@ import { Toaster } from "@/components/ui/toaster"
 
 export const metadata: Metadata = {
   title: 'EchoTrack',
-  description: 'A song discovery and tracking app that simultaneously monitors multiple AI-powered online radio stations.',
+  description: 'Simultaneously monitor and discover music from your favorite online radio stations.',
 };
 
 export default function RootLayout({

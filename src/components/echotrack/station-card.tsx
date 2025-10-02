@@ -4,14 +4,15 @@
 import type { Song, Station } from '@/lib/types';
 import { ICONS } from '@/lib/data';
 import { useAppContext } from '@/context/app-context';
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Star, Music, Loader2, X, PowerOff, Play, Pause, Pencil } from 'lucide-react';
+import { Star, Music, Loader2, X, PowerOff, Play, Pause, Pencil, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { fetchNowPlaying } from '@/app/actions';
 import { EditStationForm } from '@/components/echotrack/edit-station-form';
+import { formatDistanceToNow } from 'date-fns';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,6 +24,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import { SoundWave } from '@/components/echotrack/sound-wave';
 
 type StationCardProps = {
@@ -64,6 +70,10 @@ export function StationCard({ station }: StationCardProps) {
     const loggedVersion = loggedSongs.find(s => s.id === loggedId);
     return loggedVersion ? loggedVersion.isFavorite : false;
   }, [loggedId, loggedSongs]);
+
+  const stationHistory = useMemo(() => {
+    return loggedSongs.filter(s => s.stationName === station.name).slice(0, 5);
+  }, [loggedSongs, station.name]);
 
   useEffect(() => {
     if (station.url) {
@@ -151,7 +161,7 @@ export function StationCard({ station }: StationCardProps) {
         }
         return;
       }
-
+      
       if (isInitialLoad && isMounted) {
         setIsLoading(true);
       }
@@ -204,9 +214,8 @@ export function StationCard({ station }: StationCardProps) {
       isMounted = false;
       if (interval) clearInterval(interval);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [station.url, retryCount]);
-
+  
   useEffect(() => {
     if (currentSong) {
       logSong({
@@ -215,7 +224,8 @@ export function StationCard({ station }: StationCardProps) {
         stationName: station.name,
       });
     }
-  }, [currentSong]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSong, station.name]);
 
 
   const handleFavoriteClick = () => {
@@ -256,6 +266,28 @@ export function StationCard({ station }: StationCardProps) {
     <>
       <Card className="flex flex-col justify-between transition-all duration-300 hover:shadow-primary/20 hover:shadow-lg border-border bg-card/60 backdrop-blur-sm relative group overflow-hidden">
         <div className="absolute top-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-20">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-7 w-7 bg-black/20 hover:bg-black/40" disabled={stationHistory.length === 0}>
+                    <Clock className="w-4 h-4"/>
+                    <span className="sr-only">Recent history</span>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80">
+                <div className="space-y-4">
+                  <h4 className="font-medium leading-none">Recent History</h4>
+                  <div className="flex flex-col gap-2">
+                    {stationHistory.map(song => (
+                      <div key={song.id} className="text-sm">
+                        <p className="font-semibold truncate">{song.title}</p>
+                        <p className="text-muted-foreground truncate">{song.artist}</p>
+                        <p className="text-xs text-muted-foreground/70">{formatDistanceToNow(new Date(song.timestamp), { addSuffix: true })}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
             <Button variant="ghost" size="icon" className="h-7 w-7 bg-black/20 hover:bg-black/40" onClick={() => setIsEditDialogOpen(true)}>
                 <Pencil className="w-4 h-4"/>
                 <span className="sr-only">Edit station</span>
@@ -301,8 +333,8 @@ export function StationCard({ station }: StationCardProps) {
           ) : currentSong ? (
             <div className="w-full">
               <p className="text-xs text-primary font-semibold mb-1">NOW PLAYING</p>
-              <p className="text-lg font-bold text-primary-foreground leading-tight truncate">{currentSong.title}</p>
-              <p className="text-md text-muted-foreground truncate">{currentSong.artist}</p>
+              <p className="text-lg font-bold text-primary-foreground leading-tight">{currentSong.title}</p>
+              <p className="text-md text-muted-foreground">{currentSong.artist}</p>
             </div>
           ) : (
              <div className="flex flex-col items-center gap-2 text-muted-foreground">

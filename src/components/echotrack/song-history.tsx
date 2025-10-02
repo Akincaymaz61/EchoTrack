@@ -5,7 +5,7 @@ import { useAppContext } from '@/context/app-context';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Star, Download, Music, History, Trash2, ChevronDown } from 'lucide-react';
+import { Search, Star, Download, Music, History, Trash2, ChevronDown, X } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
@@ -38,17 +38,33 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+
 
 export function SongHistoryDialog({ isOpen, setIsOpen }: { isOpen: boolean, setIsOpen: (open: boolean) => void }) {
-  const { loggedSongs, toggleFavorite, exportAllSongs, exportFavoriteSongs, exportStationSongs, clearHistory } = useAppContext();
+  const { loggedSongs, toggleFavorite, exportAllSongs, exportFavoriteSongs, exportStationSongs, clearHistory, stations } = useAppContext();
   const [searchTerm, setSearchTerm] = useState('');
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [stationFilter, setStationFilter] = useState<string | null>(null);
   const { toast } = useToast();
+
+  const stationNamesFromHistory = useMemo(() => {
+    return [...new Set(loggedSongs.map(s => s.stationName))]
+  }, [loggedSongs]);
 
   const filteredSongs = useMemo(() => {
     return loggedSongs
       .filter(song => {
         if (showFavoritesOnly && !song.isFavorite) {
+          return false;
+        }
+        if (stationFilter && song.stationName !== stationFilter) {
           return false;
         }
         if (searchTerm.trim() === '') {
@@ -61,7 +77,7 @@ export function SongHistoryDialog({ isOpen, setIsOpen }: { isOpen: boolean, setI
           song.stationName.toLowerCase().includes(lowercasedTerm)
         );
       });
-  }, [loggedSongs, searchTerm, showFavoritesOnly]);
+  }, [loggedSongs, searchTerm, showFavoritesOnly, stationFilter]);
 
   const handleFavoriteClick = (songId: string, title: string, artist: string, isFavorite: boolean) => {
     toggleFavorite(songId);
@@ -78,10 +94,6 @@ export function SongHistoryDialog({ isOpen, setIsOpen }: { isOpen: boolean, setI
       description: "All logged songs have been removed.",
     });
   }
-
-  const stationNamesFromHistory = useMemo(() => {
-    return [...new Set(loggedSongs.map(s => s.stationName))]
-  }, [loggedSongs]);
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -102,7 +114,7 @@ export function SongHistoryDialog({ isOpen, setIsOpen }: { isOpen: boolean, setI
         </DialogHeader>
 
         <div className="flex flex-col md:flex-row gap-4 justify-between items-center py-4">
-          <div className="relative w-full md:max-w-sm">
+          <div className="relative w-full md:max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
             <Input
               placeholder="Search by title, artist, station..."
@@ -111,6 +123,19 @@ export function SongHistoryDialog({ isOpen, setIsOpen }: { isOpen: boolean, setI
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+          <div className="flex items-center gap-2">
+            <Select value={stationFilter || 'all'} onValueChange={(value) => setStationFilter(value === 'all' ? null : value)}>
+                <SelectTrigger className="w-[180px]">
+                    <SelectValue placeholder="Filter by station..." />
+                </SelectTrigger>
+                <SelectContent>
+                    <SelectItem value="all">All Stations</SelectItem>
+                    {stations.map(station => (
+                        <SelectItem key={station.id} value={station.name}>{station.name}</SelectItem>
+                    ))}
+                </SelectContent>
+            </Select>
+          </div>
           <div className="flex items-center gap-4 flex-shrink-0">
              <div className="flex items-center space-x-2">
               <Switch 
@@ -118,7 +143,7 @@ export function SongHistoryDialog({ isOpen, setIsOpen }: { isOpen: boolean, setI
                 checked={showFavoritesOnly}
                 onCheckedChange={setShowFavoritesOnly}
                 />
-              <Label htmlFor="favorites-only">Favorites Only</Label>
+              <Label htmlFor="favorites-only">Favorites</Label>
             </div>
              <DropdownMenu>
               <DropdownMenuTrigger asChild>

@@ -85,17 +85,14 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const logSong = useCallback((songData: Omit<Song, 'id' | 'timestamp' | 'isFavorite'>): string | undefined => {
      let newSongId: string | undefined = undefined;
      setLoggedSongs(currentSongs => {
-        // Check if the song (by title, artist, and station) already exists anywhere in the history.
         const songExists = currentSongs.some(
             song => song.title === songData.title && song.artist === songData.artist && song.stationName === songData.stationName
         );
 
-        // If it already exists, do not add it again. Return the existing songs.
         if (songExists) {
             return currentSongs;
         }
           
-        // If it doesn't exist, create the new song and add it.
         const newSong: Song = {
           ...songData,
           id: `song-${Date.now()}-${Math.random()}`,
@@ -103,7 +100,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
           isFavorite: false,
         };
         newSongId = newSong.id;
-        return [...currentSongs, newSong];
+        return [newSong, ...currentSongs];
      });
      return newSongId;
   }, [setLoggedSongs]);
@@ -133,19 +130,13 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const clearHistory = useCallback(() => {
     setLoggedSongs([]);
   }, [setLoggedSongs]);
-  
-  const songsWithDates = loggedSongs.map(s => {
-    const timestamp = typeof s.timestamp === 'string' ? new Date(s.timestamp) : s.timestamp;
-    return {...s, timestamp};
-  }).reverse();
-
 
   const value = {
     stations,
     addStation,
     updateStation,
     removeStation,
-    loggedSongs: songsWithDates,
+    loggedSongs,
     logSong,
     toggleFavorite,
     exportAllSongs,
@@ -166,5 +157,3 @@ export const useAppContext = () => {
   }
   return context;
 };
-
-    
