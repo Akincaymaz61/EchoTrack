@@ -10,6 +10,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { ICONS } from '@/lib/data';
 
 const SuggestStationsFromPromptInputSchema = z.object({
   prompt: z
@@ -18,10 +19,18 @@ const SuggestStationsFromPromptInputSchema = z.object({
 });
 export type SuggestStationsFromPromptInput = z.infer<typeof SuggestStationsFromPromptInputSchema>;
 
+
+const StationSuggestionSchema = z.object({
+    name: z.string().describe('The name of the radio station.'),
+    genre: z.string().describe('The primary genre of the station.'),
+    url: z.string().url().describe('A valid, publicly accessible, and live streaming URL for the station.'),
+    icon: z.enum(Object.keys(ICONS) as [keyof typeof ICONS, ...(keyof typeof ICONS)[]]).describe('An appropriate icon for the station based on its genre.')
+});
+
 const SuggestStationsFromPromptOutputSchema = z.object({
   stations: z
-    .array(z.string())
-    .describe('A list of suggested AI radio stations relevant to the user\s music preferences.'),
+    .array(StationSuggestionSchema)
+    .describe('A list of suggested AI radio stations relevant to the user\'s music preferences. Each station must have a working stream URL.'),
 });
 export type SuggestStationsFromPromptOutput = z.infer<typeof SuggestStationsFromPromptOutputSchema>;
 
@@ -33,7 +42,9 @@ const prompt = ai.definePrompt({
   name: 'suggestStationsFromPromptPrompt',
   input: {schema: SuggestStationsFromPromptInputSchema},
   output: {schema: SuggestStationsFromPromptOutputSchema},
-  prompt: `You are an AI radio station recommendation expert. Given the following music preference prompt, suggest a list of relevant AI radio stations. The output should be a JSON array of strings representing the names of suggested radio stations.
+  prompt: `You are an AI radio station recommendation expert. Given the following music preference prompt, suggest a list of 3 relevant AI radio stations. 
+  
+  IMPORTANT: For each station, you MUST provide a valid, currently live, and publicly accessible streaming URL. Do not suggest stations without a working URL. Base the icon on the genre.
 
 Music Preference Prompt: {{{prompt}}}
 
