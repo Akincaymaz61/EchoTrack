@@ -23,7 +23,7 @@ export type SuggestStationsFromPromptInput = z.infer<typeof SuggestStationsFromP
 const StationSuggestionSchema = z.object({
     name: z.string().describe('The name of the radio station.'),
     genre: z.string().describe('The primary genre of the station.'),
-    url: z.string().url().describe('A valid, publicly accessible, and live streaming URL for the station.'),
+    url: z.string().url().describe('A valid, publicly accessible, and currently LIVE audio streaming URL for the station. This MUST NOT be a website URL, but a direct link to the audio stream (e.g., ending in .mp3, .aac, or a port number).'),
     icon: z.enum(Object.keys(ICONS) as [keyof typeof ICONS, ...(keyof typeof ICONS)[]]).describe('An appropriate icon for the station based on its genre.')
 });
 
@@ -44,7 +44,7 @@ const prompt = ai.definePrompt({
   output: {schema: SuggestStationsFromPromptOutputSchema},
   prompt: `You are an AI radio station recommendation expert. Given the following music preference prompt, suggest a list of 3 relevant AI radio stations. 
   
-  IMPORTANT: For each station, you MUST provide a valid, currently live, and publicly accessible streaming URL. Do not suggest stations without a working URL. Base the icon on the genre.
+  CRITICAL: For each station, you MUST provide a valid, currently live, and publicly accessible audio streaming URL. This must be a direct link to the audio stream itself, not a website. Prioritize URLs that are likely to support Icy-MetaData (like SHOUTcast or Icecast streams). Base the icon on the genre.
 
 Music Preference Prompt: {{{prompt}}}
 

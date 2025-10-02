@@ -32,10 +32,14 @@ export async function getStationNowPlaying(input: GetStationNowPlayingInput): Pr
 }
 
 
-async function fetchStreamMetadata(streamUrl: string): Promise<{ artist?: string; title?: string; error?: string }> {
+async function fetchStreamMetadata(streamUrl: string, redirectCount = 0): Promise<{ artist?: string; title?: string; error?: string }> {
+    if (redirectCount > 5) {
+        return Promise.resolve({ error: 'Too many redirects.' });
+    }
+
     return new Promise((resolve) => {
         const url = new URL(streamUrl);
-        const protocol = url.protocol === 'https протоколы:' ? https : http;
+        const protocol = url.protocol === 'https:' ? https : http;
         
         const options = {
             hostname: url.hostname,
@@ -51,9 +55,7 @@ async function fetchStreamMetadata(streamUrl: string): Promise<{ artist?: string
             // Handle redirects
             if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
                 res.destroy();
-                // To avoid infinite loops, only follow a few redirects.
-                // For this implementation, we'll just follow one.
-                return fetchStreamMetadata(res.headers.location).then(resolve).catch(e => resolve({ error: `Redirect failed: ${e.message}`}));
+                return fetchStreamMetadata(res.headers.location, redirectCount + 1).then(resolve).catch(e => resolve({ error: `Redirect failed: ${e.message}`}));
             }
 
             let metaInt = 0;
@@ -70,9 +72,9 @@ async function fetchStreamMetadata(streamUrl: string): Promise<{ artist?: string
                      let body = '';
                      statusRes.on('data', chunk => body += chunk);
                      statusRes.on('end', () => {
-                        const match = body.match(/<body.*?>.*?Current Song: (.*?)<\/body>/ims);
-                        if (match && match[1]) {
-                             const streamTitle = match[1].trim();
+                        const match = body.match(/<body.*?>.*?,(\d+),\d+,\d+,\d+,\d+,\d+,(.*?)<\/body>/ims);
+                        if (match && match[2]) {
+                             const streamTitle = match[2].trim();
                              const parts = streamTitle.split(' - ');
                              if (parts.length >= 2) {
                                  resolve({ artist: parts[0].trim(), title: parts.slice(1).join(' - ').trim() });
@@ -80,7 +82,7 @@ async function fetchStreamMetadata(streamUrl: string): Promise<{ artist?: string
                                  resolve({ title: streamTitle });
                              }
                         } else {
-                            resolve({ error: 'Stream does not support Icy-MetaData and is not a SHOUTcast v1 stream.' });
+                            resolve({ error: 'Stream does not support Icy-MetaData and is not a compatible SHOUTcast v1 stream.' });
                         }
                      });
                 }).on('error', () => {
