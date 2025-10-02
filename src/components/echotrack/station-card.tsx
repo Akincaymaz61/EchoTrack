@@ -198,7 +198,7 @@ export function StationCard({ station }: StationCardProps) {
     };
 
     updateNowPlaying(true);
-    interval = setInterval(() => updateNowPlaying(false), 60000);
+    interval = setInterval(() => updateNowPlaying(false), 120000);
 
     return () => {
       isMounted = false;
