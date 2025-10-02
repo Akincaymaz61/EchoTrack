@@ -73,7 +73,7 @@ async function findStreamInPage(pageUrl: string): Promise<string | null> {
                     resolve(null);
                 });
             }).on('error', () => resolve(null));
-        } catch (e) {
+        } catch (e: any) {
             resolve(null);
         }
     });
@@ -103,8 +103,12 @@ async function fetchStreamMetadata(streamUrl: string, redirectCount = 0): Promis
             const req = protocol.get(options, (res) => {
                 if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
                     res.destroy();
-                    const newUrl = new URL(res.headers.location, streamUrl).href;
-                    fetchStreamMetadata(newUrl, redirectCount + 1).then(resolve).catch(e => resolve({ error: `Redirect failed: ${e.message}`}));
+                    try {
+                        const newUrl = new URL(res.headers.location, streamUrl).href;
+                        fetchStreamMetadata(newUrl, redirectCount + 1).then(resolve).catch(e => resolve({ error: `Redirect failed: ${e.message}`}));
+                    } catch (e: any) {
+                         resolve({ error: `URL parsing error on redirect: ${e.message}` });
+                    }
                     return;
                 }
 
