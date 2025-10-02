@@ -34,6 +34,8 @@ type CurrentSongInfo = {
   title: string;
 }
 
+const MAX_RETRIES = 3;
+
 export function StationCard({ station }: StationCardProps) {
   const { logSong, loggedSongs, toggleFavorite, removeStation, currentlyPlayingStationId, setCurrentlyPlayingStationId } = useAppContext();
   const [currentSong, setCurrentSong] = useState<CurrentSongInfo | null>(null);
@@ -43,6 +45,7 @@ export function StationCard({ station }: StationCardProps) {
   const [isAnalysisDialogOpen, setIsAnalysisDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
   const { toast } = useToast();
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -119,23 +122,36 @@ export function StationCard({ station }: StationCardProps) {
   };
   
   useEffect(() => {
+    let isMounted = true;
+    let interval: NodeJS.Timeout | undefined;
+
     const updateNowPlaying = async (isInitialLoad = false) => {
       if (!station.url) {
-        setError("No stream URL for this station.");
-        if (isInitialLoad) setIsLoading(false);
+        if(isMounted) {
+          setError("No stream URL for this station.");
+          setIsLoading(false);
+        }
         return;
       }
-
-      if (isInitialLoad) setIsLoading(true);
+      
+      if (isInitialLoad && isMounted) {
+        setIsLoading(true);
+      }
       
       try {
         const result = await fetchNowPlaying(station.url);
-        
+        if (!isMounted) return;
+
         if (result.error) {
-          setError(result.error);
-          setCurrentSong(null);
+           if (retryCount < MAX_RETRIES) {
+             setRetryCount(prev => prev + 1);
+           } else {
+             setError(result.error);
+             setCurrentSong(null);
+           }
         } else if (result.song) {
           setError(null);
+          setRetryCount(0); // Reset on success
           setCurrentSong(prevSong => {
               if (result.song.title !== prevSong?.title || result.song.artist !== prevSong?.artist) {
                 return {
@@ -148,30 +164,49 @@ export function StationCard({ station }: StationCardProps) {
           });
         }
       } catch (e: any) {
-        setError("Failed to fetch now playing data.");
-        setCurrentSong(null);
+        if (isMounted) {
+           if (retryCount < MAX_RETRIES) {
+             setRetryCount(prev => prev + 1);
+           } else {
+            setError("Failed to fetch now playing data.");
+            setCurrentSong(null);
+           }
+        }
       } finally {
-        if(isInitialLoad) setIsLoading(false);
+        if(isMounted) {
+            setIsLoading(false);
+        }
       }
     };
-
+    
+    // Initial call
     updateNowPlaying(true);
-    const interval = setInterval(() => updateNowPlaying(false), 15000);
+    
+    // Set up interval for subsequent fetches
+    interval = setInterval(() => {
+       setRetryCount(0); // Reset retries for periodic check
+       updateNowPlaying(false)
+    }, 15000);
 
-    return () => clearInterval(interval);
+    return () => {
+      isMounted = false;
+      if (interval) clearInterval(interval);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [station.url]);
+  }, [station.url, retryCount]); // Retry when retryCount changes
   
   useEffect(() => {
-     if (!currentSong) return;
-
-     logSong({
-       artist: currentSong.artist,
-       title: currentSong.title,
-       stationName: station.name,
-     });
+     if (!currentSong || !loggedSongs.some(s => s.title === currentSong.title && s.artist === currentSong.artist && s.stationName === station.name)) {
+        if(currentSong) {
+            logSong({
+                artist: currentSong.artist,
+                title: currentSong.title,
+                stationName: station.name,
+            });
+        }
+     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentSong, station.name]);
+  }, [currentSong]);
 
 
   const handleFavoriteClick = () => {
