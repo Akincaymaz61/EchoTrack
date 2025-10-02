@@ -129,20 +129,23 @@ export function StationCard({ station }: StationCardProps) {
     }
 
     if (isInitialLoad) setIsLoading(true);
+    else if (!isLoading && !isInitialLoad) {
+      // Don't show loader for background updates
+    }
+
 
     try {
         const result = await fetchNowPlaying(station.url);
         
         if (result.error) {
             setError(result.error);
+            setCurrentSong(null);
         } else if (result.song) {
             setError(null);
             
-            // This is the key change: we check if the song is new *before* any state updates.
             const isNewSong = result.song.title !== currentSong?.title || result.song.artist !== currentSong?.artist;
 
             if (isNewSong) {
-                // If it's a new song, we perform the state updates sequentially.
                 logSong({
                     artist: result.song.artist,
                     title: result.song.title,
@@ -159,22 +162,19 @@ export function StationCard({ station }: StationCardProps) {
         }
     } catch (e: any) {
         setError("Failed to fetch now playing data.");
+        setCurrentSong(null);
     } finally {
         if (isInitialLoad) setIsLoading(false);
     }
-  // The dependency array is crucial. It ensures this function is stable.
-  }, [station.url, station.name, logSong, currentSong?.title, currentSong?.artist]);
+  }, [station.url, station.name, logSong, isLoading, currentSong]);
 
   useEffect(() => {
-    // Run once on mount
-    updateNowPlaying(true); 
+    updateNowPlaying(true);
     
-    // Then set up the interval
     const interval = setInterval(() => {
         updateNowPlaying(false);
     }, 15000); 
 
-    // Cleanup on unmount
     return () => clearInterval(interval);
   }, [updateNowPlaying]);
 
