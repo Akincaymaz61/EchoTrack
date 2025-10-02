@@ -85,7 +85,6 @@ export function StationCard({ station }: StationCardProps) {
                 if (e.name === 'AbortError') {
                     return;
                 }
-                console.error("Error playing audio:", e);
                 toast({
                     variant: "destructive",
                     title: "Playback Error",
