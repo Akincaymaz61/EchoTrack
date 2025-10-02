@@ -30,6 +30,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { SoundWave } from '@/components/echotrack/sound-wave';
+import { Badge } from '@/components/ui/badge';
 
 type StationCardProps = {
   station: Station;
@@ -42,6 +43,17 @@ type CurrentSongInfo = {
 }
 
 const MAX_RETRIES = 3;
+
+// Helper to generate a consistent color from a string
+const generateColorFromString = (str: string) => {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  const h = hash % 360;
+  return `hsl(${h}, 70%, 40%)`;
+};
+
 
 export function StationCard({ station }: StationCardProps) {
   const { logSong, loggedSongs, toggleFavorite, removeStation, currentlyPlayingStationId, setCurrentlyPlayingStationId } = useAppContext();
@@ -77,32 +89,26 @@ export function StationCard({ station }: StationCardProps) {
 
   useEffect(() => {
     if (station.url) {
+        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
         audioRef.current = new Audio(station.url);
         audioRef.current.crossOrigin = "anonymous";
         audioRef.current.preload = 'none';
 
-        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
         analyserRef.current = audioContext.createAnalyser();
         analyserRef.current.fftSize = 256;
 
-        if (audioRef.current) {
-            sourceRef.current = audioContext.createMediaElementSource(audioRef.current);
-            sourceRef.current.connect(analyserRef.current);
-            analyserRef.current.connect(audioContext.destination);
-        }
+        sourceRef.current = audioContext.createMediaElementSource(audioRef.current);
+        sourceRef.current.connect(analyserRef.current);
+        analyserRef.current.connect(audioContext.destination);
+
+        return () => {
+            audioContext.close();
+            if (audioRef.current) {
+                audioRef.current.pause();
+                audioRef.current = null;
+            }
+        };
     }
-    return () => {
-        if (audioRef.current) {
-            audioRef.current.pause();
-            audioRef.current = null;
-        }
-        if (sourceRef.current) {
-            sourceRef.current.disconnect();
-        }
-        if (analyserRef.current) {
-            analyserRef.current.disconnect();
-        }
-    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [station.url]);
 
@@ -225,7 +231,7 @@ export function StationCard({ station }: StationCardProps) {
       });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentSong, logSong, station.name]);
+  }, [currentSong]);
 
 
   const handleFavoriteClick = () => {
@@ -261,6 +267,8 @@ export function StationCard({ station }: StationCardProps) {
         description: `${station.name} has been removed from your list.`,
     });
   };
+
+  const genreColor = useMemo(() => generateColorFromString(station.genre), [station.genre]);
 
   return (
     <>
@@ -314,15 +322,16 @@ export function StationCard({ station }: StationCardProps) {
             </AlertDialog>
         </div>
         <CardHeader>
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <CardTitle className="font-headline text-xl flex items-center gap-3 pr-16">
-                <Icon className="w-6 h-6 text-primary flex-shrink-0" />
-                <span className="truncate">{station.name}</span>
-              </CardTitle>
-              <CardDescription>{station.genre}</CardDescription>
+            <div className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                    <CardTitle className="font-headline text-xl flex items-center gap-3">
+                        <Icon className="w-6 h-6 text-primary flex-shrink-0" />
+                        <span className="truncate">{station.name}</span>
+                    </CardTitle>
+                    <CardDescription>{station.genre}</CardDescription>
+                </div>
+                <Badge style={{ backgroundColor: genreColor }} className="text-white text-xs whitespace-nowrap">{station.genre}</Badge>
             </div>
-          </div>
         </CardHeader>
         <CardContent className="flex-grow flex flex-col justify-center items-center text-center min-h-[120px] p-4">
           {isLoading ? (
