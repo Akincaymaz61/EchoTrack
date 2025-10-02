@@ -62,10 +62,14 @@ export function StationCard({ station }: StationCardProps) {
         audioRef.current.pause();
         audioRef.current = null;
       }
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [station.url]);
 
-  const togglePlay = () => {
+  const togglePlay = async () => {
     if (audioRef.current) {
         if (isPlaying) {
             audioRef.current.pause();
@@ -74,15 +78,16 @@ export function StationCard({ station }: StationCardProps) {
             try {
                 // Set volume to 0.5 to avoid being too loud
                 audioRef.current.volume = 0.5;
-                audioRef.current.play();
+                await audioRef.current.play();
                 setIsPlaying(true);
             } catch (e) {
                 console.error("Error playing audio:", e);
                 toast({
                     variant: "destructive",
                     title: "Playback Error",
-                    description: "Could not play this station's stream.",
+                    description: "Could not play this station's stream. The URL may be invalid or unsupported.",
                 });
+                setIsPlaying(false);
             }
         }
     }
@@ -133,12 +138,18 @@ export function StationCard({ station }: StationCardProps) {
   }, [station.url, station.name, currentSong?.title, currentSong?.artist, logSong, isLoading]);
 
   useEffect(() => {
+    // Clear any existing interval before setting a new one.
+    if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+    }
+
     updateNowPlaying();
     intervalRef.current = setInterval(updateNowPlaying, 15000);
+
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
+        if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+        }
     };
   }, [updateNowPlaying]);
 
@@ -316,3 +327,5 @@ export function StationCard({ station }: StationCardProps) {
     </>
   );
 }
+
+    
