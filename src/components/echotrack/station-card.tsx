@@ -47,7 +47,6 @@ export function StationCard({ station }: StationCardProps) {
   const { toast } = useToast();
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const intervalRef = useRef<NodeJS.Timeout>();
 
   const Icon = ICONS[station.icon] || Music;
   const isPlaying = currentlyPlayingStationId === station.id;
@@ -61,9 +60,6 @@ export function StationCard({ station }: StationCardProps) {
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current = null;
-      }
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
       }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -174,19 +170,9 @@ export function StationCard({ station }: StationCardProps) {
   }, [station.url, station.name, logSong]);
 
   useEffect(() => {
-    if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-    }
-
     updateNowPlaying(true);
-    
-    intervalRef.current = setInterval(() => updateNowPlaying(false), 15000);
-
-    return () => {
-        if (intervalRef.current) {
-            clearInterval(intervalRef.current);
-        }
-    };
+    const interval = setInterval(() => updateNowPlaying(false), 15000);
+    return () => clearInterval(interval);
   }, [updateNowPlaying]);
 
 
