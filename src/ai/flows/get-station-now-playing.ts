@@ -32,55 +32,6 @@ export async function getStationNowPlaying(input: GetStationNowPlayingInput): Pr
   return getStationNowPlayingFlow(input);
 }
 
-async function findStreamInPage(pageUrl: string): Promise<string | null> {
-    return new Promise((resolve) => {
-        try {
-            const url = new URL(pageUrl);
-            const protocol = url.protocol === 'https:' ? https : http;
-
-            protocol.get(pageUrl, { headers: { 'User-Agent': 'EchoTrack/1.0' } }, (res) => {
-                let body = '';
-                if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-                    const newUrl = new URL(res.headers.location, pageUrl).href;
-                    resolve(findStreamInPage(newUrl));
-                    res.destroy();
-                    return;
-                }
-                res.on('data', chunk => body += chunk);
-                res.on('end', () => {
-                    const streamRegex = /(https?:\/\/[^"'<>\s]+\/(?:;|\bice-?cast\b|\bshout-?cast\b|\blive\b|\bstream\b)[^"'<>\s]*)/gi;
-                    const audioSrcRegex = /<audio[^>]+src=["'](https?:\/\/[^"']+)["']/gi;
-                    const portRegex = /(https?:\/\/[^"'<>\s]+:\d{4,5}(?:\/[^"'<>\s]*)?)/gi;
-                    const mp3Regex = /(https?:\/\/[^"'<>\s]+\.mp3)/gi;
-                    const aacRegex = /(https?:\/\/[^"'<>\s]+\.aac)/gi;
-
-                    let match;
-                    
-                    match = streamRegex.exec(body);
-                    if (match) { resolve(match[0]); return; }
-                    
-                    match = audioSrcRegex.exec(body);
-                    if (match) { resolve(match[1]); return; }
-
-                    match = portRegex.exec(body);
-                    if (match) { resolve(match[0]); return; }
-                    
-                    match = mp3Regex.exec(body);
-                    if (match) { resolve(match[0]); return; }
-
-                    match = aacRegex.exec(body);
-                    if (match) { resolve(match[0]); return; }
-                    
-                    resolve(null);
-                });
-            }).on('error', () => resolve(null));
-        } catch (e: any) {
-            resolve(null);
-        }
-    });
-}
-
-
 async function fetchStreamMetadata(streamUrl: string, redirectCount = 0): Promise<{ artist?: string; title?: string; error?: string }> {
     if (redirectCount > 5) {
         return Promise.resolve({ error: 'Too many redirects.' });
@@ -126,29 +77,8 @@ async function fetchStreamMetadata(streamUrl: string, redirectCount = 0): Promis
             }
 
             if (!metaInt) {
-                const statusPath = url.pathname.endsWith('/') ? `${url.pathname}7.html` : `${url.pathname}/7.html`;
-                const statusOptions = { ...options, path: statusPath };
-                
-                protocol.get(statusOptions, (statusRes) => {
-                    let body = '';
-                    statusRes.on('data', chunk => body += chunk);
-                    statusRes.on('end', () => {
-                        const match = body.match(/<body.*?>.*Current Song: <\/b>(.*?)<\/td>.*<\/table>.*<\/body>/ims) || body.match(/StreamTitle:'(.*?)'/);
-                        if (match && match[1]) {
-                            const streamTitle = match[1].trim();
-                            const parts = streamTitle.split(' - ');
-                            if (parts.length >= 2) {
-                                resolve({ artist: parts[0].trim(), title: parts.slice(1).join(' - ').trim() });
-                            } else {
-                                resolve({ title: streamTitle });
-                            }
-                        } else {
-                            resolve({ error: 'Stream does not support Icy-MetaData and is not a compatible SHOUTcast v1 stream.' });
-                        }
-                    });
-                }).on('error', () => {
-                    resolve({ error: 'Stream does not support Icy-MetaData.' });
-                });
+                resolve({ error: 'Stream does not support Icy-MetaData.' });
+                res.destroy();
                 return;
             }
             
@@ -222,21 +152,7 @@ const getStationNowPlayingFlow = ai.defineFlow(
     }
     
     try {
-        const metadataFromInitialUrl = await fetchStreamMetadata(url);
-
-        if (!metadataFromInitialUrl.error && metadataFromInitialUrl.title) {
-            return {
-                artist: metadataFromInitialUrl.artist || 'Unknown Artist',
-                title: metadataFromInitialUrl.title,
-            };
-        }
-
-        const streamUrl = await findStreamInPage(url);
-        if (!streamUrl) {
-            return { error: 'Could not find a valid audio stream on the provided page.' };
-        }
-        
-        const metadata = await fetchStreamMetadata(streamUrl);
+        const metadata = await fetchStreamMetadata(url);
 
         if (metadata.error) {
             return { error: metadata.error };
