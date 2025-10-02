@@ -1,4 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
+import { ICONS } from '@/lib/data';
 
 export type Song = {
   id: string;
@@ -13,5 +14,6 @@ export type Station = {
   id: string;
   name: string;
   genre: string;
-  icon: LucideIcon;
+  url?: string;
+  icon: keyof typeof ICONS;
 };

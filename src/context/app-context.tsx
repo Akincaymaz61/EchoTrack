@@ -1,10 +1,14 @@
 'use client';
 
-import type { Song } from '@/lib/types';
+import type { Song, Station } from '@/lib/types';
 import { exportSongsToTxt } from '@/lib/utils';
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react';
+import { STATIONS as initialStations } from '@/lib/data';
 
 interface AppContextType {
+  stations: Station[];
+  addStation: (station: Omit<Station, 'id'>) => void;
+  removeStation: (stationId: string) => void;
   loggedSongs: Song[];
   logSong: (song: Omit<Song, 'id' | 'timestamp' | 'isFavorite'>) => void;
   toggleFavorite: (songId: string) => void;
@@ -15,7 +19,20 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
+  const [stations, setStations] = useState<Station[]>(initialStations);
   const [loggedSongs, setLoggedSongs] = useState<Song[]>([]);
+
+  const addStation = useCallback((stationData: Omit<Station, 'id'>) => {
+    const newStation: Station = {
+      ...stationData,
+      id: `station-${Date.now()}-${Math.random()}`,
+    };
+    setStations(prevStations => [...prevStations, newStation]);
+  }, []);
+
+  const removeStation = useCallback((stationId: string) => {
+    setStations(prevStations => prevStations.filter(s => s.id !== stationId));
+  }, []);
 
   const logSong = useCallback((songData: Omit<Song, 'id' | 'timestamp' | 'isFavorite'>) => {
     const newSong: Song = {
@@ -45,6 +62,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   }, [loggedSongs]);
 
   const value = {
+    stations,
+    addStation,
+    removeStation,
     loggedSongs,
     logSong,
     toggleFavorite,

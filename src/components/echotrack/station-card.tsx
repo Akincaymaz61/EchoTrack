@@ -1,13 +1,13 @@
 'use client';
 
 import type { Song, Station } from '@/lib/types';
-import { SONG_POOL } from '@/lib/data';
+import { ICONS } from '@/lib/data';
 import { useAppContext } from '@/context/app-context';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Star, Music, Loader2, BrainCircuit } from 'lucide-react';
+import { Star, Music, Loader2, BrainCircuit, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { getTrendSummary } from '@/app/actions';
@@ -26,7 +26,7 @@ type StationCardProps = {
 };
 
 export function StationCard({ station }: StationCardProps) {
-  const { logSong, loggedSongs, toggleFavorite } = useAppContext();
+  const { logSong, loggedSongs, toggleFavorite, removeStation } = useAppContext();
   const [currentSong, setCurrentSong] = useState<Song | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -34,7 +34,7 @@ export function StationCard({ station }: StationCardProps) {
   const [isAnalysisDialogOpen, setIsAnalysisDialogOpen] = useState(false);
   const { toast } = useToast();
 
-  const stationSongPool = useMemo(() => SONG_POOL.filter(s => s.stationIds.includes(station.id)), [station.id]);
+  const Icon = ICONS[station.icon] || Music;
 
   const isCurrentSongFavorite = useMemo(() => {
     if (!currentSong) return false;
@@ -42,32 +42,19 @@ export function StationCard({ station }: StationCardProps) {
     return loggedVersion ? loggedVersion.isFavorite : false;
   }, [currentSong, loggedSongs]);
 
-  const playNextSong = useCallback(() => {
-    if (stationSongPool.length === 0) {
-      console.warn(`No songs in pool for station: ${station.name}`);
-      setIsLoading(false);
-      return;
-    }
-
-    const songData = stationSongPool[Math.floor(Math.random() * stationSongPool.length)];
-    const newSong: Song = {
-      id: `song-${Date.now()}-${Math.random()}`,
-      artist: songData.artist,
-      title: songData.title,
-      stationName: station.name,
-      timestamp: new Date(),
-      isFavorite: false,
-    };
-    setCurrentSong(newSong);
-    logSong(newSong);
-    if (isLoading) setIsLoading(false);
-  }, [logSong, station.name, isLoading, stationSongPool]);
-
   useEffect(() => {
-    playNextSong();
-    const interval = setInterval(playNextSong, Math.floor(Math.random() * 10000) + 20000); // 20-30 seconds
-    return () => clearInterval(interval);
-  }, [playNextSong]);
+    // This is now a placeholder. In the future, this would fetch from the station.url
+    setIsLoading(false);
+    setCurrentSong({
+        id: `song-${Date.now()}`,
+        artist: "Broadcast",
+        title: "...",
+        stationName: station.name,
+        timestamp: new Date(),
+        isFavorite: false,
+    });
+  }, [station.name, station.url]);
+
 
   const handleFavoriteClick = () => {
     if (currentSong) {
@@ -79,6 +66,14 @@ export function StationCard({ station }: StationCardProps) {
       });
     }
   };
+  
+  const handleRemoveStation = () => {
+    removeStation(station.id);
+    toast({
+        title: "Station Removed",
+        description: `${station.name} has been removed from your list.`,
+    });
+  };
 
   const handleAnalyzeTrends = async () => {
     setIsAnalyzing(true);
@@ -86,11 +81,11 @@ export function StationCard({ station }: StationCardProps) {
       .filter(s => s.stationName === station.name)
       .map(s => ({ artist: s.artist, title: s.title, timestamp: s.timestamp.toISOString() }));
 
-    if (stationHistory.length < 3) {
+    if (stationHistory.length < 1) { // Changed from 3 to 1 for placeholder
       toast({
         variant: "destructive",
         title: "Not Enough Data",
-        description: "Need at least 3 logged songs to analyze trends for this station.",
+        description: "Need at least 1 logged song to analyze trends for this station.",
       });
       setIsAnalyzing(false);
       return;
@@ -114,12 +109,16 @@ export function StationCard({ station }: StationCardProps) {
 
   return (
     <>
-      <Card className="flex flex-col justify-between transition-all duration-300 hover:shadow-primary/20 hover:shadow-lg border-transparent bg-card/50 backdrop-blur-sm">
+      <Card className="flex flex-col justify-between transition-all duration-300 hover:shadow-primary/20 hover:shadow-lg border-transparent bg-card/50 backdrop-blur-sm relative group">
+        <Button variant="ghost" size="icon" className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity z-10" onClick={handleRemoveStation}>
+            <X className="w-4 h-4"/>
+            <span className="sr-only">Remove station</span>
+        </Button>
         <CardHeader>
           <div className="flex items-start justify-between gap-4">
             <div>
               <CardTitle className="font-headline text-xl flex items-center gap-2">
-                <station.icon className="w-6 h-6 text-primary" />
+                <Icon className="w-6 h-6 text-primary" />
                 {station.name}
               </CardTitle>
               <CardDescription>{station.genre}</CardDescription>
