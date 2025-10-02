@@ -36,7 +36,7 @@ type CurrentSongInfo = {
 }
 
 export function StationCard({ station }: StationCardProps) {
-  const { logSong, loggedSongs, toggleFavorite, removeStation } = useAppContext();
+  const { logSong, loggedSongs, toggleFavorite, removeStation, currentlyPlayingStationId, setCurrentlyPlayingStationId } = useAppContext();
   const [currentSong, setCurrentSong] = useState<CurrentSongInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -44,13 +44,13 @@ export function StationCard({ station }: StationCardProps) {
   const [isAnalysisDialogOpen, setIsAnalysisDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
   const { toast } = useToast();
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const intervalRef = useRef<NodeJS.Timeout>();
 
   const Icon = ICONS[station.icon] || Music;
+  const isPlaying = currentlyPlayingStationId === station.id;
 
   useEffect(() => {
     if (station.url) {
@@ -69,31 +69,40 @@ export function StationCard({ station }: StationCardProps) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [station.url]);
 
-  const togglePlay = async () => {
-    if (audioRef.current) {
-        if (isPlaying) {
-            audioRef.current.pause();
-            setIsPlaying(false);
-        } else {
+  useEffect(() => {
+    const playAudio = async () => {
+        if (isPlaying && audioRef.current?.paused) {
             try {
                 audioRef.current.volume = 0.5;
                 await audioRef.current.play();
-                setIsPlaying(true);
             } catch (e: any) {
-                if (e.name === 'AbortError') {
-                    // This error is expected when pausing, so we can ignore it.
-                    return;
+                if (e.name !== 'AbortError') {
+                    toast({
+                        variant: "destructive",
+                        title: "Playback Error",
+                        description: "Could not play this station's stream. The URL may be invalid or unsupported.",
+                    });
+                    setCurrentlyPlayingStationId(null);
                 }
-                toast({
-                    variant: "destructive",
-                    title: "Playback Error",
-                    description: "Could not play this station's stream. The URL may be invalid or unsupported.",
-                });
-                setIsPlaying(false);
             }
         }
+    };
+
+    if (isPlaying) {
+        playAudio();
+    } else {
+        audioRef.current?.pause();
+    }
+  }, [isPlaying, setCurrentlyPlayingStationId, toast]);
+
+  const handlePlayPauseToggle = () => {
+    if (isPlaying) {
+      setCurrentlyPlayingStationId(null);
+    } else {
+      setCurrentlyPlayingStationId(station.id);
     }
   };
+
 
   const isCurrentSongFavorite = useMemo(() => {
     if (!currentSong) return false;
@@ -114,20 +123,16 @@ export function StationCard({ station }: StationCardProps) {
       return;
     }
     
-    // Only show loader on the very first load
     if (isInitialLoad) {
       setIsLoading(true);
     }
 
     const result = await fetchNowPlaying(station.url);
     
-    // Always set loading to false after any fetch attempt
     setIsLoading(false);
 
     if (result.error) {
       setError(result.error);
-      // Do not clear the current song, so the last known song remains visible
-      // setCurrentSong(null); 
     } else if (result.song) {
       setError(null);
       
@@ -157,10 +162,8 @@ export function StationCard({ station }: StationCardProps) {
         clearInterval(intervalRef.current);
     }
 
-    // Initial call with a flag to show the loader
     updateNowPlaying(true);
     
-    // Subsequent calls will be silent background updates
     intervalRef.current = setInterval(() => updateNowPlaying(false), 15000);
 
     return () => {
@@ -307,7 +310,7 @@ export function StationCard({ station }: StationCardProps) {
             <span className="sr-only">Favorite</span>
           </Button>
           
-           <Button variant="outline" size="icon" onClick={togglePlay} disabled={!station.url}>
+           <Button variant="outline" size="icon" onClick={handlePlayPauseToggle} disabled={!station.url}>
             {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5" />}
             <span className="sr-only">{isPlaying ? 'Pause' : 'Play'}</span>
           </Button>
@@ -344,3 +347,5 @@ export function StationCard({ station }: StationCardProps) {
     </>
   );
 }
+
+    

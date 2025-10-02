@@ -1,3 +1,4 @@
+
 'use client';
 
 import type { Song, Station } from '@/lib/types';
@@ -17,6 +18,8 @@ interface AppContextType {
   exportFavoriteSongs: () => void;
   exportStationSongs: (stationName: string) => void;
   clearHistory: () => void;
+  currentlyPlayingStationId: string | null;
+  setCurrentlyPlayingStationId: (stationId: string | null) => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -59,6 +62,7 @@ function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T | ((val
 export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [stations, setStations] = useLocalStorage<Station[]>('stations', initialStations);
   const [loggedSongs, setLoggedSongs] = useLocalStorage<Song[]>('loggedSongs', []);
+  const [currentlyPlayingStationId, setCurrentlyPlayingStationId] = useState<string | null>(null);
 
   const addStation = useCallback((stationData: Omit<Station, 'id'>) => {
     const newStation: Station = {
@@ -141,7 +145,9 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     exportAllSongs,
     exportFavoriteSongs,
     exportStationSongs,
-    clearHistory
+    clearHistory,
+    currentlyPlayingStationId,
+    setCurrentlyPlayingStationId
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
@@ -154,3 +160,5 @@ export const useAppContext = () => {
   }
   return context;
 };
+
+    
