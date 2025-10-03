@@ -2,7 +2,7 @@
 
 import type { Song, Station } from '@/lib/types';
 import { exportSongsToTxt } from '@/lib/utils';
-import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect, useMemo } from 'react';
 import { STATIONS as initialStations } from '@/lib/data';
 import { CATEGORIES as initialCategories } from '@/lib/categories';
 
@@ -14,6 +14,8 @@ interface AppContextType {
   loggedSongs: Song[];
   logSong: (song: Omit<Song, 'id' | 'timestamp' | 'isFavorite'>) => string | undefined;
   toggleFavorite: (songId: string) => void;
+  getSongById: (songId: string) => Song | undefined;
+  getLoggedSongId: (title: string, artist: string, stationName: string) => string | null;
   exportAllSongs: () => void;
   exportFavoriteSongs: () => void;
   exportStationSongs: (stationName: string) => void;
@@ -70,6 +72,27 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [categories, setCategories] = useLocalStorage<Record<string, string>>('categories', initialCategories);
   const [currentlyPlayingStationId, setCurrentlyPlayingStationId] = useState<string | null>(null);
   const [refreshSignal, setRefreshSignal] = useState(0);
+
+  const loggedSongMap = useMemo(() => {
+    const map = new Map<string, Song>();
+    loggedSongs.forEach(song => {
+      map.set(song.id, song);
+    });
+    return map;
+  }, [loggedSongs]);
+
+  const getSongById = useCallback((songId: string) => {
+    return loggedSongMap.get(songId);
+  }, [loggedSongMap]);
+
+  const getLoggedSongId = useCallback((title: string, artist: string, stationName: string) => {
+    for (const song of loggedSongs) {
+      if (song.title === title && song.artist === artist && song.stationName === stationName) {
+        return song.id;
+      }
+    }
+    return null;
+  }, [loggedSongs]);
 
   const addStation = useCallback((stationData: Omit<Station, 'id'>) => {
     const newStation: Station = {
@@ -165,6 +188,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     loggedSongs,
     logSong,
     toggleFavorite,
+    getSongById,
+    getLoggedSongId,
     exportAllSongs,
     exportFavoriteSongs,
     exportStationSongs,

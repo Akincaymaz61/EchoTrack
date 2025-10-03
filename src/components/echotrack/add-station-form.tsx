@@ -17,7 +17,7 @@ export function AddStationForm({ setIsOpen }: { setIsOpen: (isOpen: boolean) => 
   const [icon, setIcon] = useState<keyof typeof ICONS>('Radio');
   
   const categoryNames = Object.keys(categories);
-  const [category, setCategory] = useState<string>(categoryNames[0] || '');
+  const [category, setCategory] = useState<string>(categoryNames[0] || 'Misc');
 
 
   const { toast } = useToast();
@@ -114,7 +114,7 @@ export function AddStationForm({ setIsOpen }: { setIsOpen: (isOpen: boolean) => 
             </SelectContent>
         </Select>
       </div>
-      <Button type="submit" className="w-full">
+      <Button type="submit" className="w-full gap-2">
         <PlusCircle className="mr-2 h-4 w-4" />
         İstasyon Ekle
       </Button>
