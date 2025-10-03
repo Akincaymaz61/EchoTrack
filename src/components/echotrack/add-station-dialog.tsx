@@ -22,7 +22,7 @@ export function AddStationDialog({ isOpen, setIsOpen }: AddStationDialogProps) {
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button>
+        <Button className="gap-2">
             <PlusCircle className="mr-2 h-4 w-4" /> İstasyon Ekle
         </Button>
       </DialogTrigger>
