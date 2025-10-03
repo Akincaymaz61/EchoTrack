@@ -1,7 +1,6 @@
 import * as http from 'http';
 import * as https from 'https';
 import { URL } from 'url';
-import { z } from 'zod';
 
 export type NowPlaying = {
   artist?: string;
@@ -121,8 +120,10 @@ async function fetchStreamMetadata(streamUrl: string, redirectCount = 0): Promis
 }
 
 export async function getStationNowPlaying(url: string): Promise<NowPlaying> {
-  const urlValidation = z.string().url().safeParse(url);
-  if (!urlValidation.success) {
+  try {
+      // The new URL() constructor will throw an error if the URL is invalid.
+      new URL(url);
+  } catch (e) {
       return { error: 'Invalid URL format provided.' };
   }
   
