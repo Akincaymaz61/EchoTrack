@@ -1,3 +1,4 @@
+'use server';
 import * as http from 'http';
 import * as https from 'https';
 import { URL } from 'url';
@@ -35,8 +36,19 @@ async function fetchStreamMetadata(streamUrl: string, redirectCount = 0): Promis
         };
 
         const req = protocol.get(options, (res) => {
+            const cleanup = () => {
+                if (timeout) clearTimeout(timeout);
+                res.off('data', onData);
+                try {
+                  if (!res.destroyed) res.destroy();
+                } catch(e) { /* ignore */ }
+                try {
+                  if (!req.destroyed) req.destroy();
+                } catch(e) { /* ignore */ }
+            };
+
             if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-                res.destroy();
+                cleanup();
                 try {
                     const newUrl = new URL(res.headers.location, streamUrl).href;
                     fetchStreamMetadata(newUrl, redirectCount + 1).then(resolve).catch(e => resolve({ error: `Redirect failed: ${e.message}`}));
@@ -53,8 +65,8 @@ async function fetchStreamMetadata(streamUrl: string, redirectCount = 0): Promis
             }
 
             if (!metaInt) {
+                cleanup();
                 resolve({ error: 'Stream does not support Icy-MetaData.' });
-                res.destroy();
                 return;
             }
             
@@ -72,8 +84,8 @@ async function fetchStreamMetadata(streamUrl: string, redirectCount = 0): Promis
                         const metadataRaw = buffer.subarray(metaInt + 1, metadataEnd).toString('utf8');
                         const metadata = new URLSearchParams(metadataRaw.replace(/\0/g, ''));
                         const streamTitle = metadata.get('StreamTitle');
-
-                        res.destroy(); 
+                        
+                        cleanup();
 
                         if (streamTitle) {
                             const isAd = /ad|advert|commercial|sponsor/i.test(streamTitle);
@@ -100,18 +112,26 @@ async function fetchStreamMetadata(streamUrl: string, redirectCount = 0): Promis
             res.on('data', onData);
             
             res.on('end', () => {
+                cleanup();
                 resolve({ error: 'Stream ended before metadata could be read.' });
+            });
+
+            res.on('error', (e) => {
+                cleanup();
+                resolve({ error: `Stream error: ${e.message}` });
             });
         });
         
         const timeout = setTimeout(() => {
-            req.destroy();
+            try {
+              if(!req.destroyed) req.destroy();
+            } catch(e) {/* ignore */}
             clearTimeout(timeout);
             resolve({ error: 'Metadata fetch timed out.' });
-        }, 2000);
+        }, 3000); // Increased timeout for stability
 
         req.on('error', (e) => {
-            clearTimeout(timeout);
+            if(timeout) clearTimeout(timeout);
             resolve({ error: `Request error: ${e.message}` });
         });
         
@@ -121,7 +141,6 @@ async function fetchStreamMetadata(streamUrl: string, redirectCount = 0): Promis
 
 export async function getStationNowPlaying(url: string): Promise<NowPlaying> {
   try {
-      // The new URL() constructor will throw an error if the URL is invalid.
       new URL(url);
   } catch (e) {
       return { error: 'Invalid URL format provided.' };

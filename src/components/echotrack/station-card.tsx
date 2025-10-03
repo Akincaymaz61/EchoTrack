@@ -44,7 +44,7 @@ type CurrentSongInfo = {
 }
 
 export function StationCard({ station }: StationCardProps) {
-  const { logSong, loggedSongs, toggleFavorite, removeStation, currentlyPlayingStationId, setCurrentlyPlayingStationId, categories, refreshSignal } = useAppContext();
+  const { logSong, loggedSongs, toggleFavorite, removeStation, currentlyPlayingStationId, setCurrentlyPlayingStationId, categories, refreshSignal, getSongById, getLoggedSongId } = useAppContext();
   const [currentSong, setCurrentSong] = useState<CurrentSongInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -62,15 +62,14 @@ export function StationCard({ station }: StationCardProps) {
   
   const loggedId = useMemo(() => {
      if (!currentSong) return null;
-     const loggedVersion = loggedSongs.find(s => s.title === currentSong.title && s.artist === currentSong.artist && s.stationName === station.name);
-     return loggedVersion?.id;
-  },[currentSong, loggedSongs, station.name]);
+     return getLoggedSongId(currentSong.title, currentSong.artist, station.name);
+  }, [currentSong, getLoggedSongId, station.name, loggedSongs]); // Keep loggedSongs here to react to favorite changes
 
   const isCurrentSongFavorite = useMemo(() => {
     if (!loggedId) return false;
-    const loggedVersion = loggedSongs.find(s => s.id === loggedId);
+    const loggedVersion = getSongById(loggedId);
     return loggedVersion ? loggedVersion.isFavorite : false;
-  }, [loggedId, loggedSongs]);
+  }, [loggedId, getSongById, loggedSongs]); // Keep loggedSongs here to react to favorite changes
 
   const stationHistory = useMemo(() => {
     return loggedSongs.filter(s => s.stationName === station.name).slice(0, 5);
