@@ -44,7 +44,7 @@ type CurrentSongInfo = {
 }
 
 export function StationCard({ station }: StationCardProps) {
-  const { logSong, loggedSongs, toggleFavorite, removeStation, currentlyPlayingStationId, setCurrentlyPlayingStationId, categories, refreshSignal } = useAppContext();
+  const { logSong, loggedSongMap, toggleFavorite, removeStation, currentlyPlayingStationId, setCurrentlyPlayingStationId, categories, refreshSignal } = useAppContext();
   const [currentSong, setCurrentSong] = useState<CurrentSongInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -54,6 +54,7 @@ export function StationCard({ station }: StationCardProps) {
   const { toast } = useToast();
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
 
@@ -62,48 +63,73 @@ export function StationCard({ station }: StationCardProps) {
   
   const loggedId = useMemo(() => {
      if (!currentSong) return null;
-     const loggedVersion = loggedSongs.find(s => s.title === currentSong.title && s.artist === currentSong.artist && s.stationName === station.name);
-     return loggedVersion?.id;
-  },[currentSong, loggedSongs, station.name]);
+     // This could be improved if we store songs by a composite key, but for now this is ok.
+     for (const song of loggedSongMap.values()) {
+        if (song.title === currentSong.title && song.artist === currentSong.artist && song.stationName === station.name) {
+            return song.id;
+        }
+     }
+     return null;
+  },[currentSong, loggedSongMap, station.name]);
 
   const isCurrentSongFavorite = useMemo(() => {
     if (!loggedId) return false;
-    const loggedVersion = loggedSongs.find(s => s.id === loggedId);
+    const loggedVersion = loggedSongMap.get(loggedId);
     return loggedVersion ? loggedVersion.isFavorite : false;
-  }, [loggedId, loggedSongs]);
+  }, [loggedId, loggedSongMap]);
 
   const stationHistory = useMemo(() => {
-    return loggedSongs.filter(s => s.stationName === station.name).slice(0, 5);
-  }, [loggedSongs, station.name]);
-
-  useEffect(() => {
-    if (station.url) {
-        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-        audioRef.current = new Audio(station.url);
-        audioRef.current.crossOrigin = "anonymous";
-        audioRef.current.preload = 'none';
-
-        analyserRef.current = audioContext.createAnalyser();
-        analyserRef.current.fftSize = 256;
-
-        sourceRef.current = audioContext.createMediaElementSource(audioRef.current);
-        sourceRef.current.connect(analyserRef.current);
-        analyserRef.current.connect(audioContext.destination);
-
-        return () => {
-            audioContext.close();
-            if (audioRef.current) {
-                audioRef.current.pause();
-                audioRef.current = null;
-            }
-        };
+    const history: Song[] = [];
+    for (const song of loggedSongMap.values()) {
+        if (song.stationName === station.name) {
+            history.push(song);
+        }
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [station.url]);
+    return history.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 5);
+  }, [loggedSongMap, station.name]);
+
+  const setupAudio = () => {
+    if (!station.url || audioContextRef.current) return;
+
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    audioContextRef.current = audioContext;
+    
+    audioRef.current = new Audio(station.url);
+    audioRef.current.crossOrigin = "anonymous";
+    audioRef.current.preload = 'none';
+
+    analyserRef.current = audioContext.createAnalyser();
+    analyserRef.current.fftSize = 256;
+
+    sourceRef.current = audioContext.createMediaElementSource(audioRef.current);
+    sourceRef.current.connect(analyserRef.current);
+    analyserRef.current.connect(audioContext.destination);
+  };
+  
+  const tearDownAudio = () => {
+      if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current.src = "";
+          audioRef.current = null;
+      }
+      if (sourceRef.current) {
+          sourceRef.current.disconnect();
+          sourceRef.current = null;
+      }
+      if (analyserRef.current) {
+          analyserRef.current.disconnect();
+          analyserRef.current = null;
+      }
+      if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+          audioContextRef.current.close();
+          audioContextRef.current = null;
+      }
+  };
+
 
   useEffect(() => {
     const playAudio = async () => {
-        if (isPlaying && audioRef.current?.paused) {
+        if (audioRef.current?.paused) {
             try {
                 audioRef.current.volume = 0.5;
                 await audioRef.current.play();
@@ -122,11 +148,17 @@ export function StationCard({ station }: StationCardProps) {
     };
 
     if (isPlaying) {
+        setupAudio(); // Setup audio context only when play is initiated
         playAudio();
     } else {
-        audioRef.current?.pause();
+        tearDownAudio(); // Cleanup audio context when not playing
     }
-  }, [isPlaying, setCurrentlyPlayingStationId, toast]);
+
+    return () => {
+        tearDownAudio();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isPlaying]);
 
   const handlePlayPauseToggle = () => {
     if (!station.url) {
@@ -137,11 +169,7 @@ export function StationCard({ station }: StationCardProps) {
         });
         return;
     }
-    if (isPlaying) {
-      setCurrentlyPlayingStationId(null);
-    } else {
-      setCurrentlyPlayingStationId(station.id);
-    }
+    setCurrentlyPlayingStationId(isPlaying ? null : station.id);
   };
   
   const triggerRefresh = () => {
@@ -150,9 +178,8 @@ export function StationCard({ station }: StationCardProps) {
   
   useEffect(() => {
     let isMounted = true;
-    let interval: NodeJS.Timeout | undefined;
 
-    const updateNowPlaying = async (isInitialLoad = false) => {
+    const updateNowPlaying = async () => {
       if (!station.url) {
         if (isMounted) {
           setError("No stream URL for this station.");
@@ -197,12 +224,10 @@ export function StationCard({ station }: StationCardProps) {
       }
     };
 
-    updateNowPlaying(true);
-    interval = setInterval(() => updateNowPlaying(false), 120000);
+    updateNowPlaying();
 
     return () => {
       isMounted = false;
-      if (interval) clearInterval(interval);
     };
   }, [station.url, refreshSignal, localRefreshSignal]);
   
