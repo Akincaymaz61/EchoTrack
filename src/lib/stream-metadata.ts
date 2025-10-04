@@ -35,12 +35,12 @@ async function fetchStreamMetadata(streamUrl: string, redirectCount = 0): Promis
         };
 
         const req = protocol.get(options, (res) => {
+            let timeout: NodeJS.Timeout | null = null;
+
             const cleanup = () => {
                 if (timeout) clearTimeout(timeout);
-                // Ensure event listeners are removed to prevent memory leaks
-                res.off('data', onData);
-                res.off('end', onEnd);
-                res.off('error', onError);
+                res.removeAllListeners();
+                req.removeAllListeners();
                 try {
                   if (!res.destroyed) res.destroy();
                 } catch(e) { /* ignore */ }
@@ -77,7 +77,8 @@ async function fetchStreamMetadata(streamUrl: string, redirectCount = 0): Promis
             const onData = (chunk: Buffer) => {
                 buffer = Buffer.concat([buffer, chunk]);
                 
-                if (buffer.length >= metaInt) {
+                const metadataLengthBytePosition = metaInt + 1;
+                if (buffer.length >= metadataLengthBytePosition) {
                     const metadataLengthByte = buffer[metaInt];
                     const metadataLength = metadataLengthByte * 16;
                     const metadataEnd = metaInt + 1 + metadataLength;
@@ -120,22 +121,20 @@ async function fetchStreamMetadata(streamUrl: string, redirectCount = 0): Promis
                 cleanup();
                 resolve({ error: `Stream error: ${e.message}` });
             };
+            
+            timeout = setTimeout(() => {
+                cleanup();
+                resolve({ error: 'Metadata fetch timed out.' });
+            }, 5000);
 
             res.on('data', onData);
             res.on('end', onEnd);
             res.on('error', onError);
         });
         
-        const timeout = setTimeout(() => {
-            try {
-              if(!req.destroyed) req.destroy();
-            } catch(e) {/* ignore */}
-            clearTimeout(timeout);
-            resolve({ error: 'Metadata fetch timed out.' });
-        }, 5000); // Increased timeout for stability
-
         req.on('error', (e) => {
-            if(timeout) clearTimeout(timeout);
+            req.removeAllListeners();
+            res.removeAllListeners();
             resolve({ error: `Request error: ${e.message}` });
         });
         
