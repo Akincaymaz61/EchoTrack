@@ -24,8 +24,6 @@ interface AppContextType {
   categories: Record<string, string>;
   addCategory: (name: string, color: string) => void;
   removeCategory: (name: string) => void;
-  refreshSignal: number;
-  refreshAllStations: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -70,7 +68,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [loggedSongs, setLoggedSongs] = useLocalStorage<Song[]>('loggedSongs', []);
   const [categories, setCategories] = useLocalStorage<Record<string, string>>('categories', initialCategories);
   const [currentlyPlayingStationId, setCurrentlyPlayingStationId] = useState<string | null>(null);
-  const [refreshSignal, setRefreshSignal] = useState(0);
 
   const loggedSongMap = useMemo(() => {
     const map = new Map<string, Song>();
@@ -144,10 +141,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     });
   }, [setCategories]);
 
-  const refreshAllStations = useCallback(() => {
-    setRefreshSignal(prev => prev + 1);
-  }, []);
-
   const exportAllSongs = useCallback(() => {
     exportSongsToTxt(loggedSongs, false);
   }, [loggedSongs]);
@@ -184,8 +177,6 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     categories,
     addCategory,
     removeCategory,
-    refreshSignal,
-    refreshAllStations
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
@@ -198,3 +189,5 @@ export const useAppContext = () => {
   }
   return context;
 };
+
+    

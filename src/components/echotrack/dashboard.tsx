@@ -7,12 +7,12 @@ import { StationCard } from '@/components/echotrack/station-card';
 import { SongHistoryDialog } from '@/components/echotrack/song-history';
 import { AddStationDialog } from '@/components/echotrack/add-station-dialog';
 import { ManageCategoriesDialog } from '@/components/echotrack/manage-categories-dialog';
-import { Radio, Plus, ListFilter, X, History, RefreshCw } from 'lucide-react';
+import { Radio, Plus, ListFilter, X, History } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 
 function MainUI() {
-  const { stations, categories, refreshAllStations } = useAppContext();
+  const { stations, categories } = useAppContext();
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isAddStationOpen, setIsAddStationOpen] = useState(false);
   const [isManageCategoriesOpen, setIsManageCategoriesOpen] = useState(false);
@@ -28,9 +28,6 @@ function MainUI() {
     return stations.filter(station => station.category === categoryFilter);
   }, [stations, categoryFilter]);
   
-  const handleRefreshAll = () => {
-    refreshAllStations();
-  }
 
   return (
     <>
@@ -73,9 +70,6 @@ function MainUI() {
 
           <ManageCategoriesDialog isOpen={isManageCategoriesOpen} setIsOpen={setIsManageCategoriesOpen} />
 
-          <Button variant="outline" onClick={handleRefreshAll} disabled={stations.length === 0}>
-            <RefreshCw className="mr-2 h-4 w-4" /> Tümünü Yenile
-          </Button>
         </div>
 
         {filteredStations.length > 0 ? (
@@ -114,3 +108,5 @@ export function Dashboard() {
     </AppProvider>
   );
 }
+
+    

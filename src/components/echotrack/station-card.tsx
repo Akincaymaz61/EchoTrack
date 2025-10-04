@@ -44,7 +44,7 @@ type CurrentSongInfo = {
 }
 
 export function StationCard({ station }: StationCardProps) {
-  const { logSong, loggedSongMap, toggleFavorite, removeStation, currentlyPlayingStationId, setCurrentlyPlayingStationId, categories, refreshSignal } = useAppContext();
+  const { logSong, loggedSongMap, toggleFavorite, removeStation, currentlyPlayingStationId, setCurrentlyPlayingStationId, categories } = useAppContext();
   const [currentSong, setCurrentSong] = useState<CurrentSongInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -62,7 +62,7 @@ export function StationCard({ station }: StationCardProps) {
   const isPlaying = currentlyPlayingStationId === station.id;
   
   const loggedId = useMemo(() => {
-     if (!currentSong) return null;
+     if (!currentSong || !loggedSongMap) return null;
      // This could be improved if we store songs by a composite key, but for now this is ok.
      for (const song of loggedSongMap.values()) {
         if (song.title === currentSong.title && song.artist === currentSong.artist && song.stationName === station.name) {
@@ -73,13 +73,14 @@ export function StationCard({ station }: StationCardProps) {
   },[currentSong, loggedSongMap, station.name]);
 
   const isCurrentSongFavorite = useMemo(() => {
-    if (!loggedId) return false;
+    if (!loggedId || !loggedSongMap) return false;
     const loggedVersion = loggedSongMap.get(loggedId);
     return loggedVersion ? loggedVersion.isFavorite : false;
   }, [loggedId, loggedSongMap]);
 
   const stationHistory = useMemo(() => {
     const history: Song[] = [];
+    if (!loggedSongMap) return history;
     for (const song of loggedSongMap.values()) {
         if (song.stationName === station.name) {
             history.push(song);
@@ -148,10 +149,10 @@ export function StationCard({ station }: StationCardProps) {
     };
 
     if (isPlaying) {
-        setupAudio(); // Setup audio context only when play is initiated
+        setupAudio();
         playAudio();
     } else {
-        tearDownAudio(); // Cleanup audio context when not playing
+        tearDownAudio();
     }
 
     return () => {
@@ -224,12 +225,26 @@ export function StationCard({ station }: StationCardProps) {
       }
     };
 
-    updateNowPlaying();
+    // Initial fetch with a random delay to spread out requests
+    const randomDelay = Math.random() * 10000; // 0-10 seconds
+    const initialTimeout = setTimeout(() => {
+        if (isMounted) {
+            updateNowPlaying();
+        }
+    }, randomDelay);
+
+    const interval = setInterval(() => {
+        if (isMounted) {
+            updateNowPlaying();
+        }
+    }, 120000); // Refresh every 120 seconds
 
     return () => {
       isMounted = false;
+      clearTimeout(initialTimeout);
+      clearInterval(interval);
     };
-  }, [station.url, refreshSignal, localRefreshSignal]);
+  }, [station.url, localRefreshSignal]);
   
   useEffect(() => {
     if (currentSong) {
@@ -415,3 +430,5 @@ export function StationCard({ station }: StationCardProps) {
     </>
   );
 }
+
+    
