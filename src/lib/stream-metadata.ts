@@ -24,7 +24,6 @@ async function fetchStreamMetadata(streamUrl: string, redirectCount = 0): Promis
         }
 
         const protocol = url.protocol === 'https:' ? https : http;
-        
         const options = {
             hostname: url.hostname,
             port: url.port || (url.protocol === 'https:' ? 443 : 80),
@@ -38,7 +37,10 @@ async function fetchStreamMetadata(streamUrl: string, redirectCount = 0): Promis
         const req = protocol.get(options, (res) => {
             const cleanup = () => {
                 if (timeout) clearTimeout(timeout);
+                // Ensure event listeners are removed to prevent memory leaks
                 res.off('data', onData);
+                res.off('end', onEnd);
+                res.off('error', onError);
                 try {
                   if (!res.destroyed) res.destroy();
                 } catch(e) { /* ignore */ }
@@ -109,17 +111,19 @@ async function fetchStreamMetadata(streamUrl: string, redirectCount = 0): Promis
                 }
             };
 
-            res.on('data', onData);
-            
-            res.on('end', () => {
+            const onEnd = () => {
                 cleanup();
                 resolve({ error: 'Stream ended before metadata could be read.' });
-            });
+            };
 
-            res.on('error', (e) => {
+            const onError = (e: Error) => {
                 cleanup();
                 resolve({ error: `Stream error: ${e.message}` });
-            });
+            };
+
+            res.on('data', onData);
+            res.on('end', onEnd);
+            res.on('error', onError);
         });
         
         const timeout = setTimeout(() => {
@@ -128,7 +132,7 @@ async function fetchStreamMetadata(streamUrl: string, redirectCount = 0): Promis
             } catch(e) {/* ignore */}
             clearTimeout(timeout);
             resolve({ error: 'Metadata fetch timed out.' });
-        }, 3000); // Increased timeout for stability
+        }, 5000); // Increased timeout for stability
 
         req.on('error', (e) => {
             if(timeout) clearTimeout(timeout);

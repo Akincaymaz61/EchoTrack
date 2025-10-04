@@ -54,6 +54,7 @@ export function StationCard({ station }: StationCardProps) {
   const { toast } = useToast();
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const sourceRef = useRef<MediaElementAudioSourceNode | null>(null);
 
@@ -63,69 +64,91 @@ export function StationCard({ station }: StationCardProps) {
   const loggedId = useMemo(() => {
      if (!currentSong) return null;
      return getLoggedSongId(currentSong.title, currentSong.artist, station.name);
-  }, [currentSong, getLoggedSongId, station.name, loggedSongs]); // Keep loggedSongs here to react to favorite changes
+  }, [currentSong, getLoggedSongId, station.name, loggedSongs]); 
 
   const isCurrentSongFavorite = useMemo(() => {
     if (!loggedId) return false;
     const loggedVersion = getSongById(loggedId);
     return loggedVersion ? loggedVersion.isFavorite : false;
-  }, [loggedId, getSongById, loggedSongs]); // Keep loggedSongs here to react to favorite changes
+  }, [loggedId, getSongById, loggedSongs]); 
 
   const stationHistory = useMemo(() => {
     return loggedSongs.filter(s => s.stationName === station.name).slice(0, 5);
   }, [loggedSongs, station.name]);
 
-  useEffect(() => {
-    if (station.url) {
-        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-        audioRef.current = new Audio(station.url);
-        audioRef.current.crossOrigin = "anonymous";
-        audioRef.current.preload = 'none';
+  const setupAudio = () => {
+    if (!station.url || audioRef.current) return;
 
-        analyserRef.current = audioContext.createAnalyser();
-        analyserRef.current.fftSize = 256;
+    audioRef.current = new Audio(station.url);
+    audioRef.current.crossOrigin = "anonymous";
+    audioRef.current.preload = 'none';
 
-        sourceRef.current = audioContext.createMediaElementSource(audioRef.current);
-        sourceRef.current.connect(analyserRef.current);
-        analyserRef.current.connect(audioContext.destination);
+    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    audioContextRef.current = audioContext;
 
-        return () => {
-            audioContext.close();
-            if (audioRef.current) {
-                audioRef.current.pause();
-                audioRef.current = null;
-            }
-        };
+    analyserRef.current = audioContext.createAnalyser();
+    analyserRef.current.fftSize = 256;
+
+    sourceRef.current = audioContext.createMediaElementSource(audioRef.current);
+    sourceRef.current.connect(analyserRef.current);
+    analyserRef.current.connect(audioContext.destination);
+  };
+
+  const cleanupAudio = () => {
+    if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [station.url]);
+    if (sourceRef.current) {
+        sourceRef.current.disconnect();
+        sourceRef.current = null;
+    }
+    if (analyserRef.current) {
+        analyserRef.current.disconnect();
+        analyserRef.current = null;
+    }
+    if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
+    }
+  };
+
 
   useEffect(() => {
     const playAudio = async () => {
-        if (isPlaying && audioRef.current?.paused) {
-            try {
-                audioRef.current.volume = 0.5;
-                await audioRef.current.play();
-            } catch (e: any) {
-                if (e.name !== 'AbortError') {
-                    console.error("Playback Error:", e);
-                    toast({
-                        variant: "destructive",
-                        title: "Playback Error",
-                        description: "Could not play stream. The URL may be invalid or the station might be offline.",
-                    });
-                    setCurrentlyPlayingStationId(null);
-                }
+      if (isPlaying) {
+        setupAudio(); // Setup on demand
+        if (audioRef.current?.paused) {
+          try {
+            audioRef.current.volume = 0.5;
+            await audioRef.current.play();
+          } catch (e: any) {
+            if (e.name !== 'AbortError') {
+              console.error("Playback Error:", e);
+              toast({
+                variant: "destructive",
+                title: "Playback Error",
+                description: "Could not play stream. The URL may be invalid or the station might be offline.",
+              });
+              setCurrentlyPlayingStationId(null);
             }
+          }
         }
+      }
     };
 
     if (isPlaying) {
-        playAudio();
+      playAudio();
     } else {
-        audioRef.current?.pause();
+      cleanupAudio();
     }
-  }, [isPlaying, setCurrentlyPlayingStationId, toast]);
+    
+    return () => {
+        if(isPlaying){
+            cleanupAudio();
+        }
+    }
+  }, [isPlaying]);
 
   const handlePlayPauseToggle = () => {
     if (!station.url) {

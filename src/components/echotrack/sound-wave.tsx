@@ -39,16 +39,15 @@ export const SoundWave: React.FC<SoundWaveProps> = ({ analyser, barCount = 32 })
 
     useEffect(() => {
         const canvas = canvasRef.current;
-        if (!canvas) return;
+        if (!canvas || !analyser) return;
 
-        // Use the station-color-primary from the parent Card's style
         const cardElement = canvas.closest('.station-card-wrapper');
         const stationColorHex = cardElement ? getComputedStyle(cardElement).getPropertyValue('--station-color-primary-hex') : '#ffffff';
         const stationColorHsl = hexToHsl(stationColorHex.trim());
 
         const context = canvas.getContext('2d');
         if (!context) return;
-
+        
         let animationFrameId: number;
 
         const bufferLength = analyser.frequencyBinCount;
@@ -66,21 +65,16 @@ export const SoundWave: React.FC<SoundWaveProps> = ({ analyser, barCount = 32 })
             let barHeight;
             let x = 0;
 
+            if (stationColorHsl) {
+              const [h, s, l] = stationColorHsl;
+              context.fillStyle = `hsl(${h}, ${s}%, ${l}%)`;
+            } else {
+              context.fillStyle = 'hsl(var(--primary))';
+            }
+
             for (let i = 0; i < barCount; i++) {
-                barHeight = Math.pow(dataArray[i], 2) / 400;
-
-                if (stationColorHsl) {
-                  const [h, s, l] = stationColorHsl;
-                  context.fillStyle = `hsl(${h}, ${s}%, ${l}%)`;
-                } else {
-                  // Fallback color
-                  const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim();
-                  const [h, s, l] = primaryColor.split(' ').map(parseFloat);
-                  context.fillStyle = `hsl(${h}, ${s}%, ${l}%)`;
-                }
-
-                context.fillRect(x, height - barHeight / 2, barWidth, barHeight);
-
+                barHeight = dataArray[i] / 2.5; // Simplified calculation
+                context.fillRect(x, height - barHeight, barWidth, barHeight);
                 x += barWidth + 5; 
             }
         };
